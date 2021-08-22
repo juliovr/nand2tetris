@@ -1,0 +1,436 @@
+@256
+D=A
+@SP
+M=D
+@17
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@17
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@SP
+M=M-1
+A=M
+D=M
+@SP
+M=M-1
+A=M
+M=M-D
+D=M
+@EQ_0
+D;JEQ
+(NEQ_0)
+    @SP
+    A=M
+    M=0
+    @CONTINUE_0
+    0;JMP
+(EQ_0)
+    @SP
+    A=M
+    M=-1
+(CONTINUE_0)
+@SP
+M=M+1
+@17
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@16
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@SP
+M=M-1
+A=M
+D=M
+@SP
+M=M-1
+A=M
+M=M-D
+D=M
+@EQ_1
+D;JEQ
+(NEQ_1)
+    @SP
+    A=M
+    M=0
+    @CONTINUE_1
+    0;JMP
+(EQ_1)
+    @SP
+    A=M
+    M=-1
+(CONTINUE_1)
+@SP
+M=M+1
+@16
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@17
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@SP
+M=M-1
+A=M
+D=M
+@SP
+M=M-1
+A=M
+M=M-D
+D=M
+@EQ_2
+D;JEQ
+(NEQ_2)
+    @SP
+    A=M
+    M=0
+    @CONTINUE_2
+    0;JMP
+(EQ_2)
+    @SP
+    A=M
+    M=-1
+(CONTINUE_2)
+@SP
+M=M+1
+@892
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@891
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@SP
+M=M-1
+A=M
+D=M
+@SP
+M=M-1
+A=M
+M=M-D
+D=M
+@LT_3
+D;JLT
+(NLT_3)
+    @SP
+    A=M
+    M=0
+    @CONTINUE_3
+    0;JMP
+(LT_3)
+    @SP
+    A=M
+    M=-1
+(CONTINUE_3)
+@SP
+M=M+1
+@891
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@892
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@SP
+M=M-1
+A=M
+D=M
+@SP
+M=M-1
+A=M
+M=M-D
+D=M
+@LT_4
+D;JLT
+(NLT_4)
+    @SP
+    A=M
+    M=0
+    @CONTINUE_4
+    0;JMP
+(LT_4)
+    @SP
+    A=M
+    M=-1
+(CONTINUE_4)
+@SP
+M=M+1
+@891
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@891
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@SP
+M=M-1
+A=M
+D=M
+@SP
+M=M-1
+A=M
+M=M-D
+D=M
+@LT_5
+D;JLT
+(NLT_5)
+    @SP
+    A=M
+    M=0
+    @CONTINUE_5
+    0;JMP
+(LT_5)
+    @SP
+    A=M
+    M=-1
+(CONTINUE_5)
+@SP
+M=M+1
+@32767
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@32766
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@SP
+M=M-1
+A=M
+D=M
+@SP
+M=M-1
+A=M
+M=M-D
+D=M
+@GT_6
+D;JGT
+(NGT_6)
+    @SP
+    A=M
+    M=0
+    @CONTINUE_6
+    0;JMP
+(GT_6)
+    @SP
+    A=M
+    M=-1
+(CONTINUE_6)
+@SP
+M=M+1
+@32766
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@32767
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@SP
+M=M-1
+A=M
+D=M
+@SP
+M=M-1
+A=M
+M=M-D
+D=M
+@GT_7
+D;JGT
+(NGT_7)
+    @SP
+    A=M
+    M=0
+    @CONTINUE_7
+    0;JMP
+(GT_7)
+    @SP
+    A=M
+    M=-1
+(CONTINUE_7)
+@SP
+M=M+1
+@32766
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@32766
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@SP
+M=M-1
+A=M
+D=M
+@SP
+M=M-1
+A=M
+M=M-D
+D=M
+@GT_8
+D;JGT
+(NGT_8)
+    @SP
+    A=M
+    M=0
+    @CONTINUE_8
+    0;JMP
+(GT_8)
+    @SP
+    A=M
+    M=-1
+(CONTINUE_8)
+@SP
+M=M+1
+@57
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@31
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@53
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@SP
+M=M-1
+A=M
+D=M
+@SP
+M=M-1
+A=M
+M=M+D
+@SP
+M=M+1
+@112
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@SP
+M=M-1
+A=M
+D=M
+@SP
+M=M-1
+A=M
+M=M-D
+@SP
+M=M+1
+@SP
+M=M-1
+A=M
+M=-M
+@SP
+M=M+1
+@SP
+M=M-1
+A=M
+D=M
+@SP
+M=M-1
+A=M
+M=M&D
+@SP
+M=M+1
+@82
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+@SP
+M=M-1
+A=M
+D=M
+@SP
+M=M-1
+A=M
+M=M|D
+@SP
+M=M+1
+@SP
+M=M-1
+A=M
+M=!M
+@SP
+M=M+1
+(END)
+@END
+0;JMP
