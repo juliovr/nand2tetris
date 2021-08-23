@@ -323,50 +323,6 @@ void write_arithmetic(Command command, FILE *output)
     }
 }
 
-struct Stack_Node {
-    int value;
-    Stack_Node *next;
-};
-
-
-struct Stack {
-    Stack_Node *top;
-    int n;
-};
-
-void push_stack(Stack *stack, int value)
-{
-    Stack_Node *node = (Stack_Node *) malloc(sizeof(Stack_Node));
-    node->value = value;
-    node->next = stack->top;
-    
-    stack->top = node;
-    stack->n++;
-}
-
-int pop_stack(Stack *stack)
-{
-    Stack_Node *last_top = stack->top;
-    int value = last_top->value;
-    stack->top = stack->top->next;
-    
-    stack->n--;
-    
-    free(last_top);
-    
-    return value;
-}
-
-void free_stack(Stack *stack)
-{
-    while (stack->n > 0) {
-        pop_stack(stack);
-    }
-}
-
-Stack local = {};
-Stack argument = {};
-
 void write_push_pop(Command command, FILE *output)
 {
     switch (command.type) {
@@ -380,27 +336,202 @@ void write_push_pop(Command command, FILE *output)
                 fprintf(output, "@SP\n");
                 fprintf(output, "M=M+1\n");
             } else if (strcmp(command.arg_1, "local") == 0) {
-                push_stack(&local, command.arg_2);
+                fprintf(output, "@%d\n", command.arg_2);
+                fprintf(output, "D=A\n");
+                fprintf(output, "@LCL\n");
+                fprintf(output, "A=M+D\n");
+                fprintf(output, "D=M\n");
+                fprintf(output, "@SP\n");
+                fprintf(output, "A=M\n");
+                fprintf(output, "M=D\n");
+                fprintf(output, "@SP\n");
+                fprintf(output, "M=M+1\n");
+            } else if (strcmp(command.arg_1, "argument") == 0) {
+                fprintf(output, "@%d\n", command.arg_2);
+                fprintf(output, "D=A\n");
+                fprintf(output, "@ARG\n");
+                fprintf(output, "A=M+D\n");
+                fprintf(output, "D=M\n");
+                fprintf(output, "@SP\n");
+                fprintf(output, "A=M\n");
+                fprintf(output, "M=D\n");
+                fprintf(output, "@SP\n");
+                fprintf(output, "M=M+1\n");
+            } else if (strcmp(command.arg_1, "this") == 0) {
+                fprintf(output, "@%d\n", command.arg_2);
+                fprintf(output, "D=A\n");
+                fprintf(output, "@THIS\n");
+                fprintf(output, "A=M+D\n");
+                fprintf(output, "D=M\n");
+                fprintf(output, "@SP\n");
+                fprintf(output, "A=M\n");
+                fprintf(output, "M=D\n");
+                fprintf(output, "@SP\n");
+                fprintf(output, "M=M+1\n");
+            } else if (strcmp(command.arg_1, "that") == 0) {
+                fprintf(output, "@%d\n", command.arg_2);
+                fprintf(output, "D=A\n");
+                fprintf(output, "@THAT\n");
+                fprintf(output, "A=M+D\n");
+                fprintf(output, "D=M\n");
+                fprintf(output, "@SP\n");
+                fprintf(output, "A=M\n");
+                fprintf(output, "M=D\n");
+                fprintf(output, "@SP\n");
+                fprintf(output, "M=M+1\n");
+            } else if (strcmp(command.arg_1, "temp") == 0) {
+                int temp_address = command.arg_2 + 5; // Temp[0] register is in RAM[5]
+                
+                fprintf(output, "@R%d\n", temp_address);
+                fprintf(output, "D=M\n");
+                fprintf(output, "@SP\n");
+                fprintf(output, "A=M\n");
+                fprintf(output, "M=D\n");
+                fprintf(output, "@SP\n");
+                fprintf(output, "M=M+1\n");
+            } else if (strcmp(command.arg_1, "pointer") == 0) {
+                if (command.arg_2 == 0) {
+                    // THIS pointer
+                    fprintf(output, "@THIS\n");
+                    fprintf(output, "D=M\n");
+                    fprintf(output, "@SP\n");
+                    fprintf(output, "A=M\n");
+                    fprintf(output, "M=D\n");
+                    fprintf(output, "@SP\n");
+                    fprintf(output, "M=M+1\n");
+                } else if (command.arg_2 == 1) {
+                    // THAT pointer
+                    fprintf(output, "@THAT\n");
+                    fprintf(output, "D=M\n");
+                    fprintf(output, "@SP\n");
+                    fprintf(output, "A=M\n");
+                    fprintf(output, "M=D\n");
+                    fprintf(output, "@SP\n");
+                    fprintf(output, "M=M+1\n");
+                }
+            } else if (strcmp(command.arg_1, "static") == 0) {
+                int address = command.arg_2 + 16; // static[0] address is in RAM[16]
+                
+                fprintf(output, "@%d\n", address);
+                fprintf(output, "D=M\n");
+                fprintf(output, "@SP\n");
+                fprintf(output, "A=M\n");
+                fprintf(output, "M=D\n");
+                fprintf(output, "@SP\n");
+                fprintf(output, "M=M+1\n");
             }
             
         } break;
         
         case C_POP: {
-            // TODO: empty for now.
+            if (strcmp(command.arg_1, "local") == 0) {
+                fprintf(output, "@%d\n", command.arg_2);
+                fprintf(output, "D=A\n");
+                fprintf(output, "@LCL\n");
+                fprintf(output, "D=M+D\n");
+                fprintf(output, "@R13\n"); // Location of local base address + padding (RAM[local + i])
+                fprintf(output, "M=D\n");
+                fprintf(output, "@SP\n");
+                fprintf(output, "M=M-1\n");
+                fprintf(output, "A=M\n");
+                fprintf(output, "D=M\n");
+                fprintf(output, "@R13\n");
+                fprintf(output, "A=M\n");
+                fprintf(output, "M=D\n");
+            } else if (strcmp(command.arg_1, "argument") == 0) {
+                fprintf(output, "@%d\n", command.arg_2);
+                fprintf(output, "D=A\n");
+                fprintf(output, "@ARG\n");
+                fprintf(output, "D=M+D\n");
+                fprintf(output, "@R13\n"); // Location of argument base address + padding (RAM[local + i])
+                fprintf(output, "M=D\n");
+                fprintf(output, "@SP\n");
+                fprintf(output, "M=M-1\n");
+                fprintf(output, "A=M\n");
+                fprintf(output, "D=M\n");
+                fprintf(output, "@R13\n");
+                fprintf(output, "A=M\n");
+                fprintf(output, "M=D\n");
+            } else if (strcmp(command.arg_1, "this") == 0) {
+                fprintf(output, "@%d\n", command.arg_2);
+                fprintf(output, "D=A\n");
+                fprintf(output, "@THIS\n");
+                fprintf(output, "D=M+D\n");
+                fprintf(output, "@R13\n"); // Location of this base address + padding (RAM[local + i])
+                fprintf(output, "M=D\n");
+                fprintf(output, "@SP\n");
+                fprintf(output, "M=M-1\n");
+                fprintf(output, "A=M\n");
+                fprintf(output, "D=M\n");
+                fprintf(output, "@R13\n");
+                fprintf(output, "A=M\n");
+                fprintf(output, "M=D\n");
+            } else if (strcmp(command.arg_1, "that") == 0) {
+                fprintf(output, "@%d\n", command.arg_2);
+                fprintf(output, "D=A\n");
+                fprintf(output, "@THAT\n");
+                fprintf(output, "D=M+D\n");
+                fprintf(output, "@R13\n"); // Location of that base address + padding (RAM[local + i])
+                fprintf(output, "M=D\n");
+                fprintf(output, "@SP\n");
+                fprintf(output, "M=M-1\n");
+                fprintf(output, "A=M\n");
+                fprintf(output, "D=M\n");
+                fprintf(output, "@R13\n");
+                fprintf(output, "A=M\n");
+                fprintf(output, "M=D\n");
+            } else if (strcmp(command.arg_1, "temp") == 0) {
+                int temp_address = command.arg_2 + 5; // Temp[0] register is in RAM[5]
+                
+                fprintf(output, "@SP\n");
+                fprintf(output, "M=M-1\n");
+                fprintf(output, "A=M\n");
+                fprintf(output, "D=M\n");
+                fprintf(output, "@R%d\n", temp_address);
+                fprintf(output, "M=D\n");
+            } else if (strcmp(command.arg_1, "pointer") == 0) {
+                if (command.arg_2 == 0) {
+                    // THIS pointer
+                    fprintf(output, "@SP\n");
+                    fprintf(output, "M=M-1\n");
+                    fprintf(output, "A=M\n");
+                    fprintf(output, "D=M\n");
+                    fprintf(output, "@THIS\n");
+                    fprintf(output, "M=D\n");
+                } else if (command.arg_2 == 1) {
+                    // THAT pointer
+                    fprintf(output, "@SP\n");
+                    fprintf(output, "M=M-1\n");
+                    fprintf(output, "A=M\n");
+                    fprintf(output, "D=M\n");
+                    fprintf(output, "@THAT\n");
+                    fprintf(output, "M=D\n");
+                }
+            } else if (strcmp(command.arg_1, "static") == 0) {
+                int address = command.arg_2 + 16; // static[0] address is in RAM[16]
+                
+                fprintf(output, "@SP\n");
+                fprintf(output, "M=M-1\n");
+                fprintf(output, "A=M\n");
+                fprintf(output, "D=M\n");
+                fprintf(output, "@%d\n", address);
+                fprintf(output, "M=D\n");
+            }
+            
         } break;
     }
 }
 
 int main(int argc, char *argv[])
 {
-    char *filename = "MemoryAccess/BasicTest/asd.vm";
+    char *filename = "MemoryAccess/StaticTest/StaticTest.vm";
     FILE *file = fopen(filename, "r");
     if (!file) {
         printf("Could not open file %s.\n", filename);
         goto free_resources;
     }
     
-    char *output_filename = "MemoryAccess/BasicTest/asd.asm";
+    char *output_filename = "MemoryAccess/StaticTest/StaticTest.asm";
     FILE *output = fopen(output_filename, "w");
     if (!output) {
         printf("Could not open file %s to write on.", output_filename);
@@ -434,5 +565,5 @@ int main(int argc, char *argv[])
     free_resources:
     if (output) fclose(output);
     if (file) fclose(file);
-    free_stack(&local);
 }
+
