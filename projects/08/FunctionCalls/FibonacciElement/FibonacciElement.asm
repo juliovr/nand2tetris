@@ -1,0 +1,475 @@
+@256                   // L-0
+D=A                    // L-1
+@SP                    // L-2
+M=D                    // L-3
+
+// call Sys.init 0
+@return_0                 // L-4
+D=A                        // L-5
+@SP                        // L-6
+A=M                        // L-7
+M=D                        // L-8
+@SP                        // L-9
+M=M+1                      // L-10
+@LCL                       // L-11
+D=M                        // L-12
+@SP                        // L-13
+A=M                        // L-14
+M=D                        // L-15
+@SP                        // L-16
+M=M+1                      // L-17
+@ARG                       // L-18
+D=M                        // L-19
+@SP                        // L-20
+A=M                        // L-21
+M=D                        // L-22
+@SP                        // L-23
+M=M+1                      // L-24
+@THIS                      // L-25
+D=M                        // L-26
+@SP                        // L-27
+A=M                        // L-28
+M=D                        // L-29
+@SP                        // L-30
+M=M+1                      // L-31
+@THAT                      // L-32
+D=M                        // L-33
+@SP                        // L-34
+A=M                        // L-35
+M=D                        // L-36
+@SP                        // L-37
+M=M+1                      // L-38
+@SP                        // L-39
+D=M                        // L-40
+@5                        // L-41
+D=D-A                      // L-42
+@ARG                       // L-43
+M=D                        // L-44
+@SP                        // L-45
+D=M                        // L-46
+@LCL                       // L-47
+M=D                        // L-48
+@Sys.init                        // L-49
+0;JMP                      // L-50
+(return_0)
+
+// end call statement
+
+// function Main.fibonacci 0
+(Main.fibonacci)
+
+// end function declaration
+@0                    // L-51
+D=A                    // L-52
+@ARG                   // L-53
+A=M+D                  // L-54
+D=M                    // L-55
+@SP                    // L-56
+A=M                    // L-57
+M=D                    // L-58
+@SP                    // L-59
+M=M+1                  // L-60
+@2                    // L-61
+D=A                    // L-62
+@SP                    // L-63
+A=M                    // L-64
+M=D                    // L-65
+@SP                    // L-66
+M=M+1                  // L-67
+@SP                    // L-68
+M=M-1                  // L-69
+A=M                    // L-70
+D=M                    // L-71
+@SP                    // L-72
+M=M-1                  // L-73
+A=M                    // L-74
+M=M-D                  // L-75
+D=M                    // L-76
+@LT_0               // L-77
+D;JLT                  // L-78
+(NLT_0)
+    @SP                    // L-79
+    A=M                    // L-80
+    M=0                    // L-81
+    @CONTINUE_0         // L-82
+    0;JMP                  // L-83
+(LT_0)
+    @SP                    // L-84
+    A=M                    // L-85
+    M=-1                   // L-86
+(CONTINUE_0)
+@SP                    // L-87
+M=M+1                  // L-88
+@SP                        // L-89
+M=M-1                      // L-90
+A=M                        // L-91
+D=M                        // L-92
+@IF_TRUE                        // L-93
+D;JNE                      // L-94
+@IF_FALSE                        // L-95
+0;JMP                      // L-96
+(IF_TRUE)
+@0                    // L-97
+D=A                    // L-98
+@ARG                   // L-99
+A=M+D                  // L-100
+D=M                    // L-101
+@SP                    // L-102
+A=M                    // L-103
+M=D                    // L-104
+@SP                    // L-105
+M=M+1                  // L-106
+
+// beginning return
+@LCL                       // L-107
+D=M                        // L-108
+@R12                       // L-109
+M=D                        // L-110
+@5                         // L-111
+A=D-A                      // L-112
+D=M                        // L-113
+@R15                       // L-114
+M=D                        // L-115
+@0                         // L-116
+D=A                        // L-117
+@ARG                       // L-118
+D=M+D                      // L-119
+@R13                       // L-120
+M=D                        // L-121
+@SP                        // L-122
+M=M-1                      // L-123
+A=M                        // L-124
+D=M                        // L-125
+@R13                       // L-126
+A=M                        // L-127
+M=D                        // L-128
+@ARG                       // L-129
+D=M                        // L-130
+@SP                        // L-131
+M=D+1                      // L-132
+@R12                       // L-133
+A=M-1                      // L-134
+D=M                        // L-135
+@THAT                      // L-136
+M=D                        // L-137
+@2                         // L-138
+D=A                        // L-139
+@R12                       // L-140
+A=M-D                      // L-141
+D=M                        // L-142
+@THIS                      // L-143
+M=D                        // L-144
+@3                         // L-145
+D=A                        // L-146
+@R12                       // L-147
+A=M-D                      // L-148
+D=M                        // L-149
+@ARG                       // L-150
+M=D                        // L-151
+@4                         // L-152
+D=A                        // L-153
+@R12                       // L-154
+A=M-D                      // L-155
+D=M                        // L-156
+@LCL                       // L-157
+M=D                        // L-158
+@R15                       // L-159
+A=M                        // L-160
+0;JMP                      // L-161
+
+// end return
+(IF_FALSE)
+@0                    // L-162
+D=A                    // L-163
+@ARG                   // L-164
+A=M+D                  // L-165
+D=M                    // L-166
+@SP                    // L-167
+A=M                    // L-168
+M=D                    // L-169
+@SP                    // L-170
+M=M+1                  // L-171
+@2                    // L-172
+D=A                    // L-173
+@SP                    // L-174
+A=M                    // L-175
+M=D                    // L-176
+@SP                    // L-177
+M=M+1                  // L-178
+@SP                    // L-179
+M=M-1                  // L-180
+A=M                    // L-181
+D=M                    // L-182
+@SP                    // L-183
+M=M-1                  // L-184
+A=M                    // L-185
+M=M-D                  // L-186
+@SP                    // L-187
+M=M+1                  // L-188
+
+// call Main.fibonacci 1
+@return_1                 // L-189
+D=A                        // L-190
+@SP                        // L-191
+A=M                        // L-192
+M=D                        // L-193
+@SP                        // L-194
+M=M+1                      // L-195
+@LCL                       // L-196
+D=M                        // L-197
+@SP                        // L-198
+A=M                        // L-199
+M=D                        // L-200
+@SP                        // L-201
+M=M+1                      // L-202
+@ARG                       // L-203
+D=M                        // L-204
+@SP                        // L-205
+A=M                        // L-206
+M=D                        // L-207
+@SP                        // L-208
+M=M+1                      // L-209
+@THIS                      // L-210
+D=M                        // L-211
+@SP                        // L-212
+A=M                        // L-213
+M=D                        // L-214
+@SP                        // L-215
+M=M+1                      // L-216
+@THAT                      // L-217
+D=M                        // L-218
+@SP                        // L-219
+A=M                        // L-220
+M=D                        // L-221
+@SP                        // L-222
+M=M+1                      // L-223
+@SP                        // L-224
+D=M                        // L-225
+@6                        // L-226
+D=D-A                      // L-227
+@ARG                       // L-228
+M=D                        // L-229
+@SP                        // L-230
+D=M                        // L-231
+@LCL                       // L-232
+M=D                        // L-233
+@Main.fibonacci                        // L-234
+0;JMP                      // L-235
+(return_1)
+
+// end call statement
+@0                    // L-236
+D=A                    // L-237
+@ARG                   // L-238
+A=M+D                  // L-239
+D=M                    // L-240
+@SP                    // L-241
+A=M                    // L-242
+M=D                    // L-243
+@SP                    // L-244
+M=M+1                  // L-245
+@1                    // L-246
+D=A                    // L-247
+@SP                    // L-248
+A=M                    // L-249
+M=D                    // L-250
+@SP                    // L-251
+M=M+1                  // L-252
+@SP                    // L-253
+M=M-1                  // L-254
+A=M                    // L-255
+D=M                    // L-256
+@SP                    // L-257
+M=M-1                  // L-258
+A=M                    // L-259
+M=M-D                  // L-260
+@SP                    // L-261
+M=M+1                  // L-262
+
+// call Main.fibonacci 1
+@return_2                 // L-263
+D=A                        // L-264
+@SP                        // L-265
+A=M                        // L-266
+M=D                        // L-267
+@SP                        // L-268
+M=M+1                      // L-269
+@LCL                       // L-270
+D=M                        // L-271
+@SP                        // L-272
+A=M                        // L-273
+M=D                        // L-274
+@SP                        // L-275
+M=M+1                      // L-276
+@ARG                       // L-277
+D=M                        // L-278
+@SP                        // L-279
+A=M                        // L-280
+M=D                        // L-281
+@SP                        // L-282
+M=M+1                      // L-283
+@THIS                      // L-284
+D=M                        // L-285
+@SP                        // L-286
+A=M                        // L-287
+M=D                        // L-288
+@SP                        // L-289
+M=M+1                      // L-290
+@THAT                      // L-291
+D=M                        // L-292
+@SP                        // L-293
+A=M                        // L-294
+M=D                        // L-295
+@SP                        // L-296
+M=M+1                      // L-297
+@SP                        // L-298
+D=M                        // L-299
+@6                        // L-300
+D=D-A                      // L-301
+@ARG                       // L-302
+M=D                        // L-303
+@SP                        // L-304
+D=M                        // L-305
+@LCL                       // L-306
+M=D                        // L-307
+@Main.fibonacci                        // L-308
+0;JMP                      // L-309
+(return_2)
+
+// end call statement
+@SP                    // L-310
+M=M-1                  // L-311
+A=M                    // L-312
+D=M                    // L-313
+@SP                    // L-314
+M=M-1                  // L-315
+A=M                    // L-316
+M=M+D                  // L-317
+@SP                    // L-318
+M=M+1                  // L-319
+
+// beginning return
+@LCL                       // L-320
+D=M                        // L-321
+@R12                       // L-322
+M=D                        // L-323
+@5                         // L-324
+A=D-A                      // L-325
+D=M                        // L-326
+@R15                       // L-327
+M=D                        // L-328
+@0                         // L-329
+D=A                        // L-330
+@ARG                       // L-331
+D=M+D                      // L-332
+@R13                       // L-333
+M=D                        // L-334
+@SP                        // L-335
+M=M-1                      // L-336
+A=M                        // L-337
+D=M                        // L-338
+@R13                       // L-339
+A=M                        // L-340
+M=D                        // L-341
+@ARG                       // L-342
+D=M                        // L-343
+@SP                        // L-344
+M=D+1                      // L-345
+@R12                       // L-346
+A=M-1                      // L-347
+D=M                        // L-348
+@THAT                      // L-349
+M=D                        // L-350
+@2                         // L-351
+D=A                        // L-352
+@R12                       // L-353
+A=M-D                      // L-354
+D=M                        // L-355
+@THIS                      // L-356
+M=D                        // L-357
+@3                         // L-358
+D=A                        // L-359
+@R12                       // L-360
+A=M-D                      // L-361
+D=M                        // L-362
+@ARG                       // L-363
+M=D                        // L-364
+@4                         // L-365
+D=A                        // L-366
+@R12                       // L-367
+A=M-D                      // L-368
+D=M                        // L-369
+@LCL                       // L-370
+M=D                        // L-371
+@R15                       // L-372
+A=M                        // L-373
+0;JMP                      // L-374
+
+// end return
+
+// function Sys.init 0
+(Sys.init)
+
+// end function declaration
+@4                    // L-375
+D=A                    // L-376
+@SP                    // L-377
+A=M                    // L-378
+M=D                    // L-379
+@SP                    // L-380
+M=M+1                  // L-381
+
+// call Main.fibonacci 1
+@return_3                 // L-382
+D=A                        // L-383
+@SP                        // L-384
+A=M                        // L-385
+M=D                        // L-386
+@SP                        // L-387
+M=M+1                      // L-388
+@LCL                       // L-389
+D=M                        // L-390
+@SP                        // L-391
+A=M                        // L-392
+M=D                        // L-393
+@SP                        // L-394
+M=M+1                      // L-395
+@ARG                       // L-396
+D=M                        // L-397
+@SP                        // L-398
+A=M                        // L-399
+M=D                        // L-400
+@SP                        // L-401
+M=M+1                      // L-402
+@THIS                      // L-403
+D=M                        // L-404
+@SP                        // L-405
+A=M                        // L-406
+M=D                        // L-407
+@SP                        // L-408
+M=M+1                      // L-409
+@THAT                      // L-410
+D=M                        // L-411
+@SP                        // L-412
+A=M                        // L-413
+M=D                        // L-414
+@SP                        // L-415
+M=M+1                      // L-416
+@SP                        // L-417
+D=M                        // L-418
+@6                        // L-419
+D=D-A                      // L-420
+@ARG                       // L-421
+M=D                        // L-422
+@SP                        // L-423
+D=M                        // L-424
+@LCL                       // L-425
+M=D                        // L-426
+@Main.fibonacci                        // L-427
+0;JMP                      // L-428
+(return_3)
+
+// end call statement
+(WHILE)
+@WHILE                        // L-429
+0;JMP                      // L-430
