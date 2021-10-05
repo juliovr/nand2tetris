@@ -1,0 +1,48 @@
+class Game {
+
+    field Grid grid;
+    field int direction;
+
+    constructor Game new() {
+        let grid = Grid.new(4, 4);
+        let direction = 0; // no movement
+
+        return this;
+    }
+    
+    method void dispose() {
+        return;
+    }
+    
+    method void run() {
+        var char key;
+        
+        var boolean running;
+        let running  = true;
+
+        while (running) {
+            let key = Keyboard.keyPressed();
+            
+            if (key = 131) { let direction = 1; } // up arrow
+            if (key = 133) { let direction = 2; } // down arrow
+            if (key = 130) { let direction = 3; } // left arrow
+            if (key = 132) { let direction = 4; } // right arrow
+
+            do move();
+        }
+
+        return;
+    }
+
+    method void move() {
+        if (direction = 0) { do Output.printString("Direction = 0"); }
+        if (direction = 1) { do Output.printString("Direction = 1"); }
+        if (direction = 2) { do Output.printString("Direction = 2"); }
+        if (direction = 3) { do Output.printString("Direction = 3"); }
+        if (direction = 4) { do Output.printString("Direction = 4"); }
+
+        do Output.println();
+        return;
+    }
+
+}

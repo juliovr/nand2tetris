@@ -1,0 +1,31 @@
+class Grid {
+
+    field int width;
+    field int height;
+    field Array squares;
+
+    constructor Grid new(int w, int h) {
+        let width = w;
+        let height = h;
+        let squares = Array.new(width * height);
+
+        
+        
+        return this;
+    }
+
+    method void dispose() {
+        var Square square;
+        var int count;
+
+        let count = width * height;
+        while (count > 0) {
+            let square = squares[count];
+            do square.dispose();
+            let count = count - 1;
+        }
+        
+        return;
+    }
+
+}

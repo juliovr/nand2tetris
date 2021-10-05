@@ -1,0 +1,19 @@
+class Square {
+
+    field int value;
+    
+    constructor Square new() {
+        return this;
+    }
+    
+    method void dispose() {
+        do Memory.deAlloc(this);
+        return;
+    }
+
+    method void setValue(int v) {
+        let value = v;
+        return;
+    }
+
+}

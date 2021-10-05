@@ -1,0 +1,52 @@
+function Grid.new 0
+push constant 3
+call Memory.alloc 1
+pop pointer 0
+push argument 0
+pop this 0
+push argument 1
+pop this 1
+push this 0
+push this 1
+call Math.multiply 2
+call Array.new 1
+pop this 2
+push pointer 0
+return
+function Grid.dispose 2
+push argument 0
+pop pointer 0
+call Square.new 0
+pop local 0
+push local 0
+push constant 1
+neg
+call Square.setValue 2
+pop temp 0
+push this 0
+push this 1
+call Math.multiply 2
+pop local 1
+label WHILE_EXP0
+push local 1
+push constant 0
+gt
+not
+if-goto WHILE_END0
+push local 1
+push this 2
+add
+pop pointer 1
+push that 0
+pop local 0
+push local 0
+call Square.dispose 1
+pop temp 0
+push local 1
+push constant 1
+sub
+pop local 1
+goto WHILE_EXP0
+label WHILE_END0
+push constant 0
+return
