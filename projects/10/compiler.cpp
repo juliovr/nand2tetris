@@ -323,174 +323,173 @@ void add_char_to_token(char c)
     }
 }
 
-Tokens* tokenize(char *original_line)
+Tokens* tokenize(FILE *file)
 {
-    int len = strlen(original_line);
+    Tokens *tokens = create_token_list();
     
-    if (len == 0) {
-        Tokens *empty = {};
-        return empty;
-    }
-    
-    char *line = (char *) malloc(len + 1);
-    strcpy(line, original_line);
-    
-    Tokens *token_list = create_token_list();
-    
-    int index = 0;
-    while (index < len) {
-        char current_char = line[index];
+    char *line;
+    while ((line = read_line(file)) != NULL) {
+        int len = strlen(line);
         
-        switch (state) {
-            case TOKENIZER_STATE_START_TOKEN: {
-                
-                // Skip one-line comment
-                if (current_char == '/') {
-                    if (current_token[current_token_length - 1] == '/') {
-                        // Reset state
-                        current_token_length = 0;
-                        state = TOKENIZER_STATE_START_TOKEN;
-                        
-                        goto end_while;
-                    }
-                }
-                
-                // Skip blank
-                if (current_char == ' ' || current_char == '\t') {
-                    ++index;
-                    state = TOKENIZER_STATE_END_TOKEN;
-                    break;
-                }
-                
-                // Single char tokens
-                if (current_char == '{'
-                    || current_char == '}'
-                    || current_char == '('
-                    || current_char == ')'
-                    || current_char == '['
-                    || current_char == ']'
-                    || current_char == '.'
-                    || current_char == ','
-                    || current_char == ';'
-                    || current_char == '+'
-                    || current_char == '-'
-                    || current_char == '*'
-                    //|| current_char == '/'
-                    || current_char == '&'
-                    || current_char == '|'
-                    || current_char == '<'
-                    || current_char == '>'
-                    || current_char == '='
-                    || current_char == '~') {
+        if (len == 0) {
+            continue;
+        }
+        
+        int index = 0;
+        while (index < len) {
+            char current_char = line[index];
+            
+            switch (state) {
+                case TOKENIZER_STATE_START_TOKEN: {
                     
-                    state = TOKENIZER_STATE_SINGLE_CHAR_TOKEN;
-                    break;
-                }
-                
-                if (current_char == '"') {
+                    // Skip one-line comment
+                    if (current_char == '/') {
+                        if (current_token[current_token_length - 1] == '/') {
+                            // Reset state
+                            current_token_length = 0;
+                            state = TOKENIZER_STATE_START_TOKEN;
+                            
+                            goto end_while;
+                        }
+                    }
+                    
+                    // Skip blank
+                    if (current_char == ' ' || current_char == '\t') {
+                        ++index;
+                        state = TOKENIZER_STATE_END_TOKEN;
+                        break;
+                    }
+                    
+                    // Single char tokens
+                    if (current_char == '{'
+                        || current_char == '}'
+                        || current_char == '('
+                        || current_char == ')'
+                        || current_char == '['
+                        || current_char == ']'
+                        || current_char == '.'
+                        || current_char == ','
+                        || current_char == ';'
+                        || current_char == '+'
+                        || current_char == '-'
+                        || current_char == '*'
+                        //|| current_char == '/'
+                        || current_char == '&'
+                        || current_char == '|'
+                        || current_char == '<'
+                        || current_char == '>'
+                        || current_char == '='
+                        || current_char == '~') {
+                        
+                        state = TOKENIZER_STATE_SINGLE_CHAR_TOKEN;
+                        break;
+                    }
+                    
+                    if (current_char == '"') {
+                        ++index;
+                        state = TOKENIZER_STATE_STRING_TOKEN;
+                        break;
+                    }
+                    
                     ++index;
-                    state = TOKENIZER_STATE_STRING_TOKEN;
-                    break;
-                }
-                
-                ++index;
-                add_char_to_token(current_char);
-                
-            } break;
-            
-            case TOKENIZER_STATE_END_TOKEN: {
-                if (current_token_length > 0) {
-                    insert_token(token_list, current_token, current_token_length, TOKEN_TYPE_UNKNOWN);
-                }
-                
-                current_token_length = 0;
-                state = TOKENIZER_STATE_START_TOKEN;
-            } break;
-            
-            case TOKENIZER_STATE_SINGLE_CHAR_TOKEN: {
-                // Process current accumulated token without the current char
-                if (current_token_length > 0) {
-                    insert_token(token_list, current_token, current_token_length, TOKEN_TYPE_UNKNOWN);
-                }
-                
-                // Add current char
-                current_token_length = 0;
-                
-                ++index;
-                if (current_char == '<') {
-                    insert_token(token_list, "&lt;", 4, TOKEN_TYPE_UNKNOWN);
-                } else if (current_char == '>') {
-                    insert_token(token_list, "&gt;", 4, TOKEN_TYPE_UNKNOWN);
-                } else {
                     add_char_to_token(current_char);
-                    insert_token(token_list, current_token, current_token_length, TOKEN_TYPE_UNKNOWN);
-                }
+                    
+                } break;
                 
-                
-                // Reset state
-                current_token_length = 0;
-                state = TOKENIZER_STATE_START_TOKEN;
-            } break;
-            
-            case TOKENIZER_STATE_STRING_TOKEN: {
-                ++index;
-                
-                // End string
-                if (current_char == '"') {
-                    insert_token(token_list, current_token, current_token_length, TOKEN_TYPE_STRING_CONSTANT);
+                case TOKENIZER_STATE_END_TOKEN: {
+                    if (current_token_length > 0) {
+                        insert_token(tokens, current_token, current_token_length, TOKEN_TYPE_UNKNOWN);
+                    }
                     
                     current_token_length = 0;
                     state = TOKENIZER_STATE_START_TOKEN;
-                    
-                    break;
-                }
+                } break;
                 
-                add_char_to_token(current_char);
+                case TOKENIZER_STATE_SINGLE_CHAR_TOKEN: {
+                    // Process current accumulated token without the current char
+                    if (current_token_length > 0) {
+                        insert_token(tokens, current_token, current_token_length, TOKEN_TYPE_UNKNOWN);
+                    }
+                    
+                    // Add current char
+                    current_token_length = 0;
+                    
+                    ++index;
+                    if (current_char == '<') {
+                        insert_token(tokens, "&lt;", 4, TOKEN_TYPE_UNKNOWN);
+                    } else if (current_char == '>') {
+                        insert_token(tokens, "&gt;", 4, TOKEN_TYPE_UNKNOWN);
+                    } else {
+                        add_char_to_token(current_char);
+                        insert_token(tokens, current_token, current_token_length, TOKEN_TYPE_UNKNOWN);
+                    }
+                    
+                    
+                    // Reset state
+                    current_token_length = 0;
+                    state = TOKENIZER_STATE_START_TOKEN;
+                } break;
+                
+                case TOKENIZER_STATE_STRING_TOKEN: {
+                    ++index;
+                    
+                    // End string
+                    if (current_char == '"') {
+                        insert_token(tokens, current_token, current_token_length, TOKEN_TYPE_STRING_CONSTANT);
+                        
+                        current_token_length = 0;
+                        state = TOKENIZER_STATE_START_TOKEN;
+                        
+                        break;
+                    }
+                    
+                    add_char_to_token(current_char);
+                } break;
+            }
+            
+        } end_while:
+        
+        free(line);
+    }
+    
+    return tokens;
+}
+
+void parse(Tokens *tokens, FILE *output)
+{
+    Token *token = tokens->head;
+    while (token) {
+        switch (token->type) {
+            case TOKEN_TYPE_KEYWORD: {
+                
+            } break;
+            case TOKEN_TYPE_SYMBOL: {
+                
+            } break;
+            case TOKEN_TYPE_INT_CONSTANT: {
+                
+            } break;
+            case TOKEN_TYPE_STRING_CONSTANT: {
+                
+            } break;
+            case TOKEN_TYPE_IDENTIFIER: {
+                
             } break;
         }
         
-    } end_while:
+        token = token->next;
+    }
     
-    free(line);
-    
-    return token_list;
+    free_tokens(tokens);
 }
 
 void process_file(FILE *file, FILE *output)
 {
     fprintf(output, "<tokens>\n");
     
-    char *line;
-    while ((line = read_line(file)) != NULL) {
-        Tokens *tokens = tokenize(line);
-        if (tokens) {
-            Token *token = tokens->head;
-            while (token) {
-                
-                switch (token->type) {
-                    case TOKEN_TYPE_KEYWORD:
-                    fprintf(output, "<keyword> %s </keyword>\n", token->value);
-                    break;
-                    case TOKEN_TYPE_SYMBOL:
-                    fprintf(output, "<symbol> %s </symbol>\n", token->value);
-                    break;
-                    case TOKEN_TYPE_INT_CONSTANT:
-                    fprintf(output, "<integerConstant> %s </integerConstant>\n", token->value);
-                    break;
-                    case TOKEN_TYPE_STRING_CONSTANT:
-                    fprintf(output, "<stringConstant> %s </stringConstant>\n", token->value);
-                    break;
-                    case TOKEN_TYPE_IDENTIFIER:
-                    fprintf(output, "<identifier> %s </identifier>\n", token->value);
-                    break;
-                }
-                
-                token = token->next;
-            }
-            
-            free_tokens(tokens);
-            free(line);
-        }
+    Tokens *tokens = tokenize(file);
+    if (tokens) {
+        parse(tokens, output);
     }
     
     fprintf(output, "</tokens>\n");
