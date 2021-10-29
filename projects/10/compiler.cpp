@@ -1,13 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
+#include <stdint.h>
 
 #define BUFFER_SIZE 1024
 
 #define global static
 
+typedef uint64_t u64;
+
 global bool in_multiline_comment = false;
 
+u64 line_number = 0;
+
+inline
 char* read_line(FILE *file)
 {
     char buffer[BUFFER_SIZE];
@@ -27,6 +33,8 @@ char* read_line(FILE *file)
                 if (line) free(line);
                 return NULL;
             }
+        } else {
+            ++line_number;
         }
         
         strcat(line, buffer);
@@ -92,17 +100,20 @@ char* read_line(FILE *file)
     return line;
 }
 
+inline
 bool string_equals(const char *s1, const char *s2)
 {
     bool result = strcmp(s1, s2) == 0;
     return result;
 }
 
+inline
 bool start_with(const char *str, const char *pre)
 {
     return strncmp(pre, str, strlen(pre)) == 0;
 }
 
+inline
 bool end_with(const char *str, const char *suffix)
 {
     size_t str_len = strlen(str);
@@ -113,6 +124,7 @@ bool end_with(const char *str, const char *suffix)
     return memcmp(str + (str_len - suffix_len), suffix, suffix_len) == 0;
 }
 
+inline
 bool is_number(char *string)
 {
     int len = strlen(string);
@@ -167,6 +179,7 @@ enum KEYWORD_TYPE {
 
 struct Token {
     char *value;
+    u64 line_number;
     Token *next;
     Token_Type type;
 };
@@ -260,7 +273,7 @@ Tokens* create_token_list()
 /**
 Insert new token at the end of the list.
 */
-void insert_token(Tokens *tokens, char value[], int len, Token_Type token_type)
+void insert_token(Tokens *tokens, char value[], int len, u64 line_number, Token_Type token_type)
 {
     for (int i = 0; i < len; ++i) {
         char current_char = value[i];
@@ -269,6 +282,7 @@ void insert_token(Tokens *tokens, char value[], int len, Token_Type token_type)
     
     Token *new_token = (Token *) malloc(sizeof(Token));
     new_token->value = (char *) malloc(len + 1);
+    new_token->line_number = line_number;
     new_token->next = NULL;
     
     strncpy(new_token->value, value, len);
@@ -323,7 +337,14 @@ void add_char_to_token(char c)
     }
 }
 
-Tokens* tokenize(FILE *file)
+
+struct Tokenizer {
+    Tokens *tokens;
+    Token *current_token;
+};
+
+
+Tokenizer* tokenize(FILE *file)
 {
     Tokens *tokens = create_token_list();
     
@@ -398,7 +419,7 @@ Tokens* tokenize(FILE *file)
                 
                 case TOKENIZER_STATE_END_TOKEN: {
                     if (current_token_length > 0) {
-                        insert_token(tokens, current_token, current_token_length, TOKEN_TYPE_UNKNOWN);
+                        insert_token(tokens, current_token, current_token_length, line_number, TOKEN_TYPE_UNKNOWN);
                     }
                     
                     current_token_length = 0;
@@ -408,7 +429,7 @@ Tokens* tokenize(FILE *file)
                 case TOKENIZER_STATE_SINGLE_CHAR_TOKEN: {
                     // Process current accumulated token without the current char
                     if (current_token_length > 0) {
-                        insert_token(tokens, current_token, current_token_length, TOKEN_TYPE_UNKNOWN);
+                        insert_token(tokens, current_token, current_token_length, line_number, TOKEN_TYPE_UNKNOWN);
                     }
                     
                     // Add current char
@@ -416,12 +437,12 @@ Tokens* tokenize(FILE *file)
                     
                     ++index;
                     if (current_char == '<') {
-                        insert_token(tokens, "&lt;", 4, TOKEN_TYPE_UNKNOWN);
+                        insert_token(tokens, "&lt;", 4, line_number, TOKEN_TYPE_UNKNOWN);
                     } else if (current_char == '>') {
-                        insert_token(tokens, "&gt;", 4, TOKEN_TYPE_UNKNOWN);
+                        insert_token(tokens, "&gt;", 4, line_number, TOKEN_TYPE_UNKNOWN);
                     } else {
                         add_char_to_token(current_char);
-                        insert_token(tokens, current_token, current_token_length, TOKEN_TYPE_UNKNOWN);
+                        insert_token(tokens, current_token, current_token_length, line_number, TOKEN_TYPE_UNKNOWN);
                     }
                     
                     
@@ -435,7 +456,7 @@ Tokens* tokenize(FILE *file)
                     
                     // End string
                     if (current_char == '"') {
-                        insert_token(tokens, current_token, current_token_length, TOKEN_TYPE_STRING_CONSTANT);
+                        insert_token(tokens, current_token, current_token_length, line_number, TOKEN_TYPE_STRING_CONSTANT);
                         
                         current_token_length = 0;
                         state = TOKENIZER_STATE_START_TOKEN;
@@ -452,54 +473,773 @@ Tokens* tokenize(FILE *file)
         free(line);
     }
     
-    return tokens;
+    Tokenizer *tokenizer = (Tokenizer *) malloc(sizeof(Tokenizer));
+    tokenizer->tokens = tokens;
+    tokenizer->current_token = tokens->head;
+    
+    return tokenizer;
 }
 
-void parse(Tokens *tokens, FILE *output)
+Token* next_token(Tokenizer *tokenizer)
 {
-    Token *token = tokens->head;
-    while (token) {
-        switch (token->type) {
-            case TOKEN_TYPE_KEYWORD: {
-                
-            } break;
-            case TOKEN_TYPE_SYMBOL: {
-                
-            } break;
-            case TOKEN_TYPE_INT_CONSTANT: {
-                
-            } break;
-            case TOKEN_TYPE_STRING_CONSTANT: {
-                
-            } break;
-            case TOKEN_TYPE_IDENTIFIER: {
-                
-            } break;
+    if (tokenizer->current_token != NULL) {
+        tokenizer->current_token = tokenizer->current_token->next;
+    }
+    
+    return tokenizer->current_token;
+}
+
+//
+// Compiler methods declaration
+//
+void parse(Tokenizer *tokenizer, FILE *output);
+void compile_class(Tokenizer *tokenizer, FILE *output);
+void compile_class_var_dec(Tokenizer *tokenizer, FILE *output);
+void compile_subroutine(Tokenizer *tokenizer, FILE *output);
+void compile_parameter_list(Tokenizer *tokenizer, FILE *output);
+void compile_subroutine_body(Tokenizer *tokenizer, FILE *output);
+void compile_var_dec(Tokenizer *tokenizer, FILE *output);
+void compile_statements(Tokenizer *tokenizer, FILE *output);
+void compile_let(Tokenizer *tokenizer, FILE *output);
+void compile_expression(Tokenizer *tokenizer, FILE *output);
+void compile_term(Tokenizer *tokenizer, FILE *output);
+void compile_do(Tokenizer *tokenizer, FILE *output);
+void compile_subroutine_call(Tokenizer *tokenizer, FILE *output);
+void compile_expression_list(Tokenizer *tokenizer, FILE *output);
+void compile_return(Tokenizer *tokenizer, FILE *output);
+void compile_if(Tokenizer *tokenizer, FILE *output);
+void compile_while(Tokenizer *tokenizer, FILE *output);
+
+inline
+void parse(Tokenizer *tokenizer, FILE *output)
+{
+    Token *token = tokenizer->current_token;
+    if (token == NULL || !string_equals(token->value, "class")) {
+        printf("Error(%lld): The file should start with a class definition.\n", token->line_number);
+        free_tokens(tokenizer->tokens);
+        return;
+    }
+    
+    compile_class(tokenizer, output);
+    
+    free_tokens(tokenizer->tokens);
+}
+
+
+inline
+void compile_class(Tokenizer *tokenizer, FILE *output)
+{
+    fprintf(output, "<class>\n");
+    
+    Token *token = next_token(tokenizer);
+    if (token->type != TOKEN_TYPE_IDENTIFIER) {
+        fprintf(stderr, "Error(%lld): Invalid class name: %s\n", token->line_number, token->value);
+        return;
+    }
+    
+    fprintf(output, "<keyword> class </keyword>\n");
+    fprintf(output, "<identifier> %s </identifier>\n", token->value);
+    
+    token = next_token(tokenizer);
+    if (string_equals(token->value, "{")) {
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+    } else {
+        fprintf(stderr, "Error(%lld): Missing '{' in class declaration\n", token->line_number);
+        return;
+    }
+    
+    Token *eval_next_token = token->next;
+    if (string_equals(eval_next_token->value, "static") || string_equals(eval_next_token->value, "field")) {
+        token = next_token(tokenizer);
+        compile_class_var_dec(tokenizer, output);
+    }
+    
+    token = next_token(tokenizer);
+    while (string_equals(token->value, "constructor")
+           || string_equals(token->value, "function")
+           || string_equals(token->value, "method")) {
+        
+        compile_subroutine(tokenizer, output);
+        
+        token = next_token(tokenizer);
+    }
+    
+    token = tokenizer->current_token;
+    if (string_equals(token->value, "}")) {
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+    } else {
+        fprintf(stderr, "Error(%lld): Missing '}' after class declaration\n", token->line_number);
+        return;
+    }
+    
+    fprintf(output, "</class>\n");
+}
+
+
+
+inline
+void compile_class_var_dec(Tokenizer *tokenizer, FILE *output)
+{
+    fprintf(output, "<classVarDec>\n");
+    
+    Token *token = tokenizer->current_token;
+    fprintf(output, "<keyword> %s </keyword>\n", token->value);
+    
+    token = next_token(tokenizer);
+    if (token->type != TOKEN_TYPE_KEYWORD) {
+        fprintf(stderr, "Error(%lld): Specify type for class variable declaration\n", token->line_number);
+        return;
+    }
+    
+    fprintf(output, "<keyword> %s </keyword>\n", token->value);
+    
+    token = next_token(tokenizer);
+    if (token->type != TOKEN_TYPE_IDENTIFIER) {
+        fprintf(stderr, "Error(%lld): Specify name for class variable declaration\n", token->line_number);
+        return;
+    }
+    
+    fprintf(output, "<identifier> %s </identifier>\n", token->value);
+    
+    token = next_token(tokenizer);
+    if (!string_equals(token->value, ";")) {
+        fprintf(stderr, "Error(%lld): Missing ';'\n", token->line_number);
+        return;
+    }
+    
+    fprintf(output, "<symbol> %s </symbol>\n", token->value);
+    
+    fprintf(output, "</classVarDec>\n");
+}
+
+
+
+inline
+void compile_subroutine(Tokenizer *tokenizer, FILE *output)
+{
+    fprintf(output, "<subroutineDec>\n");
+    
+    Token *token = tokenizer->current_token;
+    fprintf(output, "<keyword> %s </keyword>\n", token->value);
+    
+    token = next_token(tokenizer);
+    if (string_equals(token->value, "void") || token->type == TOKEN_TYPE_IDENTIFIER) {
+        fprintf(output, "<keyword> %s </keyword>\n", token->value);
+    } else {
+        fprintf(stderr, "Error(%lld): Invalid identifier: %s\n", token->line_number, token->value);
+        return;
+    }
+    
+    token = next_token(tokenizer);
+    fprintf(output, "<identifier> %s </identifier>\n", token->value);
+    
+    
+    token = next_token(tokenizer);
+    if (string_equals(token->value, "(")) {
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+    } else {
+        fprintf(stderr, "Error(%lld): Missing '(' in subroutine declaration\n", token->line_number);
+        return;
+    }
+    
+    compile_parameter_list(tokenizer, output);
+    
+    token = next_token(tokenizer);
+    if (string_equals(token->value, ")")) {
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+    } else {
+        fprintf(stderr, "Error(%lld): Missing ')' in subroutine declaration\n", token->line_number);
+        return;
+    }
+    
+    compile_subroutine_body(tokenizer, output);
+    
+    fprintf(output, "</subroutineDec>\n");
+}
+
+
+
+inline
+void compile_parameter_list(Tokenizer *tokenizer, FILE *output)
+{
+    fprintf(output, "<parameterList>\n");
+    
+    // TODO(julio): implement
+    
+    fprintf(output, "</parameterList>\n");
+}
+
+inline
+void compile_subroutine_body(Tokenizer *tokenizer, FILE *output)
+{
+    fprintf(output, "<subroutineBody>\n");
+    
+    Token *token = next_token(tokenizer);
+    if (string_equals(token->value, "{")) {
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+    } else {
+        fprintf(stderr, "Error(%lld): Missing '{' in subroutine body\n", token->line_number);
+        return;
+    }
+    
+    while (true) {
+        Token *eval_next_token = tokenizer->current_token->next;
+        if (string_equals(eval_next_token->value, "var")) {
+            token = next_token(tokenizer);
+            compile_var_dec(tokenizer, output);
+        } else {
+            break;
+        }
+    }
+    
+    
+    compile_statements(tokenizer, output);
+    
+    token = tokenizer->current_token;
+    if (string_equals(token->value, "}")) {
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+    } else {
+        fprintf(stderr, "Error(%lld): Missing '}' in subroutine body\n", token->line_number);
+        return;
+    }
+    
+    
+    fprintf(output, "</subroutineBody>\n");
+}
+
+inline
+void compile_var_dec(Tokenizer *tokenizer, FILE *output)
+{
+    fprintf(output, "<varDec>\n");
+    
+    Token *token = tokenizer->current_token;
+    fprintf(output, "<keyword> %s </keyword>\n", token->value);
+    
+    token = next_token(tokenizer);
+    if (token->type == TOKEN_TYPE_IDENTIFIER) {
+        fprintf(output, "<identifier> %s </identifier>\n", token->value);
+    } else if (string_equals(token->value, "int")
+               || string_equals(token->value, "char")
+               || string_equals(token->value, "boolean")) {
+        
+        fprintf(output, "<keyword> %s </keyword>\n", token->value);
+    } else {
+        fprintf(stderr, "Error(%lld): Specify type for variable declaration\n", token->line_number);
+        return;
+    }
+    
+    
+    while (true) {
+        token = next_token(tokenizer);
+        if (token->type == TOKEN_TYPE_IDENTIFIER) {
+            fprintf(output, "<identifier> %s </identifier>\n", token->value);
+        } else {
+            fprintf(stderr, "Error(%lld): Specify name for variable declaration\n", token->line_number);
+            return;
         }
         
-        token = token->next;
+        Token *eval_next_token = token->next;
+        if (string_equals(eval_next_token->value, ",")) {
+            token = next_token(tokenizer);
+            fprintf(output, "<symbol> %s </symbol>\n", token->value);
+        } else {
+            break;
+        }
     }
     
-    free_tokens(tokens);
+    
+    token = next_token(tokenizer);
+    if (string_equals(token->value, ";")) {
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+    } else {
+        fprintf(stderr, "Error(%lld): Missing ';' in variable declaration\n", token->line_number);
+        return;
+    }
+    
+    
+    fprintf(output, "</varDec>\n");
 }
 
-void process_file(FILE *file, FILE *output)
+//
+// Advance the token even if it's not used. After the call, to get the actual token use tokenizer->current_token,
+// NOT next_token function.
+//
+inline
+void compile_statements(Tokenizer *tokenizer, FILE *output)
 {
-    fprintf(output, "<tokens>\n");
+    fprintf(output, "<statements>\n");
     
-    Tokens *tokens = tokenize(file);
-    if (tokens) {
-        parse(tokens, output);
+    Token *token = next_token(tokenizer);
+    while (string_equals(token->value, "let")
+           || string_equals(token->value, "do")
+           || string_equals(token->value, "return")
+           || string_equals(token->value, "if")
+           || string_equals(token->value, "while")) {
+        
+        if (string_equals(token->value, "let")) {
+            compile_let(tokenizer, output);
+        } else if (string_equals(token->value, "do")) {
+            compile_do(tokenizer, output);
+        } else if (string_equals(token->value, "return")) {
+            compile_return(tokenizer, output);
+        } else if (string_equals(token->value, "if")) {
+            compile_if(tokenizer, output);
+        } else if (string_equals(token->value, "while")) {
+            compile_while(tokenizer, output);
+        } else {
+            fprintf(stderr, "Error(%lld): Statement '%s' unrecognized\n", token->line_number, token->value);
+            return;
+        }
+        
+        
+        token = next_token(tokenizer);
     }
     
-    fprintf(output, "</tokens>\n");
+    
+    fprintf(output, "</statements>\n");
+}
+
+
+inline
+void compile_let(Tokenizer *tokenizer, FILE *output)
+{
+    fprintf(output, "<letStatement>\n");
+    
+    Token *token = tokenizer->current_token;
+    fprintf(output, "<keyword> %s </keyword>\n", token->value);
+    
+    token = next_token(tokenizer);
+    if (token->type != TOKEN_TYPE_IDENTIFIER) {
+        fprintf(stderr, "Error(%lld): Specify name for variable assignment\n", token->line_number);
+        return;
+    }
+    
+    fprintf(output, "<identifier> %s </identifier>\n", token->value);
+    
+    token = next_token(tokenizer);
+    if (string_equals(token->value, "[")) {
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+        
+        compile_expression(tokenizer, output);
+        
+        token = next_token(tokenizer);
+        if (!string_equals(token->value, "]")) {
+            fprintf(stderr, "Error(%lld): Missing ']' in array assignment\n", token->line_number);
+            return;
+        }
+        
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+        
+        token = next_token(tokenizer);
+    }
+    
+    if (string_equals(token->value, "=")) {
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+    } else {
+        fprintf(stderr, "Error(%lld): Missing '=' in  assignment statement\n", token->line_number);
+        return;
+    }
+    
+    
+    compile_expression(tokenizer, output);
+    
+    
+    token = next_token(tokenizer);
+    if (!string_equals(token->value, ";")) {
+        fprintf(stderr, "Error(%lld): Missing ';' in let\n", token->line_number);
+        return;
+    }
+    
+    fprintf(output, "<symbol> %s </symbol>\n", token->value);
+    
+    
+    fprintf(output, "</letStatement>\n");
+}
+
+inline
+void compile_expression(Tokenizer *tokenizer, FILE *output)
+{
+    fprintf(output, "<expression>\n");
+    
+    while (true) {
+        Token *token = next_token(tokenizer);
+        compile_term(tokenizer, output);
+        
+        Token *eval_next_token = tokenizer->current_token->next;
+        if (   string_equals(eval_next_token->value, "+")
+            || string_equals(eval_next_token->value, "-")
+            || string_equals(eval_next_token->value, "*")
+            || string_equals(eval_next_token->value, "/")
+            || string_equals(eval_next_token->value, "&")
+            || string_equals(eval_next_token->value, "|")
+            || string_equals(eval_next_token->value, "&lt;")
+            || string_equals(eval_next_token->value, "&gt;")
+            || string_equals(eval_next_token->value, "="))
+        {
+            token = next_token(tokenizer);
+            fprintf(output, "<symbol> %s </symbol>\n", token->value);
+        }
+        else
+        {
+            break;
+        }
+    }
+    
+    fprintf(output, "</expression>\n");
+}
+
+inline
+void compile_term(Tokenizer *tokenizer, FILE *output)
+{
+    fprintf(output, "<term>\n");
+    
+    Token *token = tokenizer->current_token;
+    if (token->type == TOKEN_TYPE_IDENTIFIER)
+    {
+        Token *eval_next_token = token->next;
+        
+        // Array
+        if (string_equals(eval_next_token->value, "["))
+        {
+            fprintf(output, "<identifier> %s </identifier>\n", token->value);
+            
+            token = next_token(tokenizer);
+            fprintf(output, "<symbol> %s </symbol>\n", token->value);
+            
+            compile_expression(tokenizer, output);
+            
+            token = next_token(tokenizer);
+            if (string_equals(token->value, "]")) {
+                fprintf(output, "<symbol> %s </symbol>\n", token->value);
+            } else {
+                fprintf(stderr, "Error(%lld): Missing ']' in array term\n", token->line_number);
+                return;
+            }
+        } else if (string_equals(eval_next_token->value, "(")
+                   || string_equals(eval_next_token->value, ".")) {
+            
+            compile_subroutine_call(tokenizer, output);
+        } else {
+            fprintf(output, "<identifier> %s </identifier>\n", token->value);
+        }
+    }
+    else if (token->type == TOKEN_TYPE_INT_CONSTANT)
+    {
+        fprintf(output, "<integerConstant> %s </integerConstant>\n", token->value);
+    }
+    else if (token->type == TOKEN_TYPE_STRING_CONSTANT)
+    {
+        fprintf(output, "<stringConstant> %s </stringConstant>\n", token->value);
+    }
+    else if (   string_equals(token->value, "true")
+             || string_equals(token->value, "false")
+             || string_equals(token->value, "null")
+             || string_equals(token->value, "this"))
+    { // Keyword constants
+        
+        fprintf(output, "<keyword> %s </keyword>\n", token->value);
+    }
+    else if (string_equals(token->value, "-")
+             || string_equals(token->value, "~"))
+    { // Unary operands
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+        
+        next_token(tokenizer);
+        compile_term(tokenizer, output);
+    }
+    else if (string_equals(token->value, "("))
+    {
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+        
+        compile_expression(tokenizer, output);
+        
+        token = next_token(tokenizer);
+        if (string_equals(token->value, ")")) {
+            fprintf(output, "<symbol> %s </symbol>\n", token->value);
+        } else {
+            fprintf(stderr, "Error(%lld): Missing ')' in enclosed term\n", token->line_number);
+            return;
+        }
+    }
+    
+    
+    fprintf(output, "</term>\n");
+}
+
+inline
+void compile_do(Tokenizer *tokenizer, FILE *output)
+{
+    fprintf(output, "<doStatement>\n");
+    
+    Token *token = tokenizer->current_token;
+    fprintf(output, "<keyword> %s </keyword>\n", token->value);
+    
+    next_token(tokenizer);
+    compile_subroutine_call(tokenizer, output);
+    
+    
+    token = next_token(tokenizer);
+    if (!string_equals(token->value, ";")) {
+        fprintf(stderr, "Error(%lld): Missing ';' in do\n", token->line_number);
+        return;
+    }
+    
+    fprintf(output, "<symbol> %s </symbol>\n", token->value);
+    
+    
+    fprintf(output, "</doStatement>\n");
+}
+
+inline
+void compile_subroutine_call(Tokenizer *tokenizer, FILE *output)
+{
+    Token *token = tokenizer->current_token;
+    if (token->type != TOKEN_TYPE_IDENTIFIER) {
+        fprintf(stderr, "Error(%lld): Incorrect identifier %s in subroutine call\n", token->line_number, token->value);
+        return;
+    }
+    
+    fprintf(output, "<identifier> %s </identifier>\n", token->value);
+    
+    token = next_token(tokenizer);
+    if (string_equals(token->value, "(")) {
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+        
+        compile_expression_list(tokenizer, output);
+        
+        token = tokenizer->current_token;
+        if (!string_equals(token->value, ")")) {
+            fprintf(stderr, "Error(%lld): Missing ')' after subroutine call\n", token->line_number);
+            return;
+        }
+    } else if (string_equals(token->value, ".")) {
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+        
+        token = next_token(tokenizer);
+        if (token->type != TOKEN_TYPE_IDENTIFIER) {
+            fprintf(stderr, "Error(%lld): Incorrect identifier %s in subroutine call\n", token->line_number, token->value);
+            return;
+        }
+        
+        fprintf(output, "<identifier> %s </identifier>\n", token->value);
+        
+        token = next_token(tokenizer);
+        if (!string_equals(token->value, "(")) {
+            fprintf(stderr, "Error(%lld): Missing '(' in subroutine call\n", token->line_number);
+            return;
+        }
+        
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+        
+        
+        compile_expression_list(tokenizer, output);
+        
+        
+        token = tokenizer->current_token;
+        if (!string_equals(token->value, ")")) {
+            fprintf(stderr, "Error(%lld): Missing ')' in subroutine call\n", token->line_number);
+            return;
+        }
+        
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+        
+    } else {
+        fprintf(stderr, "Error(%lld): Malformed 'do' instruction %s for subroutine call\n", token->line_number, token->value);
+        return;
+    }
+}
+
+//
+// Advance the token even if it's not used. After the call, to get the actual token use tokenizer->current_token,
+// NOT next_token function.
+//
+inline
+void compile_expression_list(Tokenizer *tokenizer, FILE *output)
+{
+    fprintf(output, "<expressionList>\n");
+    
+    // TODO(julio): only compiles 1 parameter. Make it multiple
+    Token *eval_next_token = tokenizer->current_token->next;
+    if (!string_equals(eval_next_token->value, ")")) {
+        compile_expression(tokenizer, output);
+    }
+    
+    Token *token = next_token(tokenizer);
+    
+    fprintf(output, "</expressionList>\n");
+}
+
+inline
+void compile_return(Tokenizer *tokenizer, FILE *output)
+{
+    fprintf(output, "<returnStatement>\n");
+    
+    Token *token = tokenizer->current_token;
+    fprintf(output, "<keyword> %s </keyword>\n", token->value);
+    
+    token = next_token(tokenizer);
+    if (string_equals(token->value, ";")) {
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+    } else {
+        compile_expression(tokenizer, output);
+    }
+    
+    fprintf(output, "</returnStatement>\n");
+}
+
+inline
+void compile_if(Tokenizer *tokenizer, FILE *output)
+{
+    fprintf(output, "<ifStatement>\n");
+    
+    Token *token = tokenizer->current_token;
+    fprintf(output, "<keyword> %s </keyword>\n", token->value);
+    
+    
+    token = next_token(tokenizer);
+    if (string_equals(token->value, "(")) {
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+    } else {
+        fprintf(stderr, "Error(%lld): Missing '(' in if statement\n", token->line_number);
+        return;
+    }
+    
+    
+    compile_expression(tokenizer, output);
+    
+    
+    token = next_token(tokenizer);
+    if (string_equals(token->value, ")")) {
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+    } else {
+        fprintf(stderr, "Error(%lld): Missing ')' in if statement\n", token->line_number);
+        return;
+    }
+    
+    
+    token = next_token(tokenizer);
+    if (string_equals(token->value, "{")) {
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+    } else {
+        fprintf(stderr, "Error(%lld): Missing '{' in if statement\n", token->line_number);
+        return;
+    }
+    
+    
+    compile_statements(tokenizer, output);
+    
+    
+    token = tokenizer->current_token;
+    if (string_equals(token->value, "}")) {
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+    } else {
+        fprintf(stderr, "Error(%lld): Missing '}' in if statement\n", token->line_number);
+        return;
+    }
+    
+    
+    Token *possible_else_token = token->next;
+    if (string_equals(possible_else_token->value, "else")) {
+        token = next_token(tokenizer);
+        fprintf(output, "<keyword> %s </keyword>\n", token->value);
+        
+        
+        token = next_token(tokenizer);
+        if (string_equals(token->value, "{")) {
+            fprintf(output, "<symbol> %s </symbol>\n", token->value);
+        } else {
+            fprintf(stderr, "Error(%lld): Missing '{' in if statement\n", token->line_number);
+            return;
+        }
+        
+        
+        compile_statements(tokenizer, output);
+        
+        
+        token = tokenizer->current_token;
+        if (string_equals(token->value, "}")) {
+            fprintf(output, "<symbol> %s </symbol>\n", token->value);
+        } else {
+            fprintf(stderr, "Error(%lld): Missing '}' in if statement\n", token->line_number);
+            return;
+        }
+        
+    }
+    
+    
+    fprintf(output, "</ifStatement>\n");
+}
+
+inline
+void compile_while(Tokenizer *tokenizer, FILE *output)
+{
+    fprintf(output, "<whileStatement>\n");
+    
+    Token *token = tokenizer->current_token;
+    fprintf(output, "<keyword> %s </keyword>\n", token->value);
+    
+    
+    token = next_token(tokenizer);
+    if (string_equals(token->value, "(")) {
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+    } else {
+        fprintf(stderr, "Error(%lld): Missing '(' in while statement\n", token->line_number);
+        return;
+    }
+    
+    
+    compile_expression(tokenizer, output);
+    
+    
+    token = next_token(tokenizer);
+    if (string_equals(token->value, ")")) {
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+    } else {
+        fprintf(stderr, "Error(%lld): Missing ')' in while statement\n", token->line_number);
+        return;
+    }
+    
+    
+    token = next_token(tokenizer);
+    if (string_equals(token->value, "{")) {
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+    } else {
+        fprintf(stderr, "Error(%lld): Missing '{' in while statement\n", token->line_number);
+        return;
+    }
+    
+    
+    compile_statements(tokenizer, output);
+    
+    
+    token = tokenizer->current_token;
+    if (string_equals(token->value, "}")) {
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+    } else {
+        fprintf(stderr, "Error(%lld): Missing '}' in while statement\n", token->line_number);
+        return;
+    }
+    
+    
+    fprintf(output, "</whileStatement>\n");
+}
+
+inline
+void process_file(FILE *file, FILE *output)
+{
+    Tokenizer *tokenizer = tokenize(file);
+    if (tokenizer->tokens) {
+        parse(tokenizer, output);
+    }
 }
 
 int main()
 {
     int status_code = 0;
     
-    char *output_filename = "ExpressionLessSquare/Tokens.xml";
+    char *output_filename = "ExpressionLessSquare/Parsed.xml";
+    //char *output_filename = "Square/Parsed.xml";
+    //char *output_filename = "ArrayTest/Parsed.xml";
     FILE *output = fopen(output_filename, "w");
     if (!output) {
         printf("Could not open file %s to write on.", output_filename);
@@ -508,6 +1248,8 @@ int main()
     }
     
     char *filename = "ExpressionLessSquare/Main.jack";
+    //char *filename = "Square/Main.jack";
+    //char *filename = "ArrayTest/Main.jack";
     FILE *file = fopen(filename, "r");
     if (!file) {
         printf("Could not open file %s.\n", filename);
