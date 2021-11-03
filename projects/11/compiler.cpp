@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string>
 #include <stdint.h>
+#include <map>
 
 #define BUFFER_SIZE 1024
 
@@ -51,11 +52,8 @@ char* read_line(FILE *file)
                 line[0] = '\0';
                 continue;
             } else {
-                
                 bool same_line = false;
                 int index_start_multiline_comment = 0;
-                
-                
                 
                 for (int i = 1; i < strlen(line); ++i) {
                     if (in_multiline_comment) {
@@ -90,12 +88,12 @@ char* read_line(FILE *file)
                     line[0] = '\0';
                 } else if (same_line) {
                     line[index_start_multiline_comment] = '\0';
+
+                    // TODO: Trim line because the left blanks are considered to be part of the next line
                 } else {
                     break;
                 }
             }
-            
-            
         }
     }
     
@@ -496,6 +494,39 @@ Token* next_token(Tokenizer *tokenizer)
     return tokenizer->current_token;
 }
 
+
+
+
+
+struct cmp_str
+{
+    bool operator()(char const *a, char const *b) const
+    {
+        return std::strcmp(a, b) < 0;
+    }
+};
+
+enum SYMBOL_ENTRY_CATEGORY {
+    SYMBOL_ENTRY_CATEGORY_VAR,
+    SYMBOL_ENTRY_CATEGORY_ARGUMENT,
+    SYMBOL_ENTRY_CATEGORY_STATIC,
+    SYMBOL_ENTRY_CATEGORY_FIELD
+};
+
+struct Symbol_Entry {
+    char *name;
+    char *type;
+    char *kind;
+    //SYMBOL_ENTRY_CATEGORY category;
+    int index;
+};
+
+
+global std::map<char *, Symbol_Entry *, cmp_str> symbol_table_classes;
+global std::map<char *, Symbol_Entry *, cmp_str> symbol_table_subroutines;
+
+
+
 //
 // Compiler methods declaration
 //
@@ -555,13 +586,18 @@ void compile_class(Tokenizer *tokenizer, FILE *output)
         return;
     }
     
-    Token *eval_next_token = token->next;
-    if (string_equals(eval_next_token->value, "static") || string_equals(eval_next_token->value, "field")) {
-        token = next_token(tokenizer);
+
+    token = next_token(tokenizer);
+    while (string_equals(token->value, "static")
+           || string_equals(token->value, "field")) {
+        
         compile_class_var_dec(tokenizer, output);
+
+        token = next_token(tokenizer);
     }
     
-    token = next_token(tokenizer);
+
+    token = tokenizer->current_token;
     while (string_equals(token->value, "constructor")
            || string_equals(token->value, "function")
            || string_equals(token->value, "method")) {
@@ -590,31 +626,57 @@ void compile_class_var_dec(Tokenizer *tokenizer, FILE *output)
     fprintf(output, "<classVarDec>\n");
     
     Token *token = tokenizer->current_token;
-    fprintf(output, "<keyword> %s </keyword>\n", token->value);
+    char *kind = token->value;
+    fprintf(output, "<keyword> %s </keyword>\n", kind);
     
+
     token = next_token(tokenizer);
-    if (token->type != TOKEN_TYPE_KEYWORD) {
+    char *type = token->value;
+    if (token->type == TOKEN_TYPE_KEYWORD) {
+        fprintf(output, "<keyword> %s </keyword>\n", type);
+    } else {
         fprintf(stderr, "Error(%lld): Specify type for class variable declaration\n", token->line_number);
         return;
     }
+
+
+    while (true) {
+        token = next_token(tokenizer);
+        if (token->type == TOKEN_TYPE_IDENTIFIER) {
+            char *name = token->value;
+            fprintf(output, "<identifier> %s </identifier>\n", name);
+
+        
+            Symbol_Entry *entry = (Symbol_Entry *) malloc(sizeof(Symbol_Entry));
+            entry->name = name;
+            entry->type = type;
+            entry->kind = kind;
+            entry->index = 0;
+        
+            symbol_table_classes["class"] = entry;
+        } else {
+            fprintf(stderr, "Error(%lld): Specify name for class variable declaration\n", token->line_number);
+            return;
+        }
+
+        Token *eval_next_token = token->next;
+        if (string_equals(eval_next_token->value, ",")) {
+            token = next_token(tokenizer);
+            fprintf(output, "<symbol> %s </symbol>", token->value);
+        } else {
+            break;
+        }
+    }
     
-    fprintf(output, "<keyword> %s </keyword>\n", token->value);
     
     token = next_token(tokenizer);
-    if (token->type != TOKEN_TYPE_IDENTIFIER) {
-        fprintf(stderr, "Error(%lld): Specify name for class variable declaration\n", token->line_number);
+    if (string_equals(token->value, ";")) {
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+    } else {
+        fprintf(stderr, "Error(%lld): Missing ';' in class variable declaration\n", token->line_number);
         return;
     }
     
-    fprintf(output, "<identifier> %s </identifier>\n", token->value);
-    
-    token = next_token(tokenizer);
-    if (!string_equals(token->value, ";")) {
-        fprintf(stderr, "Error(%lld): Missing ';'\n", token->line_number);
-        return;
-    }
-    
-    fprintf(output, "<symbol> %s </symbol>\n", token->value);
     
     fprintf(output, "</classVarDec>\n");
 }
@@ -671,8 +733,43 @@ void compile_parameter_list(Tokenizer *tokenizer, FILE *output)
 {
     fprintf(output, "<parameterList>\n");
     
-    // TODO(julio): implement
-    
+    Token *token = tokenizer->current_token;
+    while (true) {
+        // No parameters
+        if (string_equals(token->next->value, ")")) {
+            break;
+        }
+        
+        token = next_token(tokenizer);
+        if (token->type == TOKEN_TYPE_IDENTIFIER) {
+            fprintf(output, "<identifier> %s </identifier>\n", token->value);
+        } else if (string_equals(token->value, "int")
+                   || string_equals(token->value, "char")
+                   || string_equals(token->value, "boolean")) {
+        
+            fprintf(output, "<keyword> %s </keyword>\n", token->value);
+        } else {
+            fprintf(stderr, "Error(%lld): Specify type for parameter declaration\n", token->line_number);
+            return;
+        }
+
+        token = next_token(tokenizer);
+        if (token->type == TOKEN_TYPE_IDENTIFIER) {
+            fprintf(output, "<identifier> %s </identifier>\n", token->value);
+        } else {
+            fprintf(stderr, "Error(%lld): Specify name for parameter declaration\n", token->line_number);
+            return;
+        }
+
+        Token *eval_next_token = token->next;
+        if (string_equals(eval_next_token->value, ",")) {
+            token = next_token(tokenizer);
+            fprintf(output, "<symbol> %s </symbol>\n", token->value);
+        } else {
+            break;
+        }
+    }
+
     fprintf(output, "</parameterList>\n");
 }
 
@@ -1031,24 +1128,24 @@ void compile_subroutine_call(Tokenizer *tokenizer, FILE *output)
         fprintf(output, "<identifier> %s </identifier>\n", token->value);
         
         token = next_token(tokenizer);
-        if (!string_equals(token->value, "(")) {
+        if (string_equals(token->value, "(")) {
+            fprintf(output, "<symbol> %s </symbol>\n", token->value);
+        } else {
             fprintf(stderr, "Error(%lld): Missing '(' in subroutine call\n", token->line_number);
             return;
         }
-        
-        fprintf(output, "<symbol> %s </symbol>\n", token->value);
         
         
         compile_expression_list(tokenizer, output);
         
         
         token = tokenizer->current_token;
-        if (!string_equals(token->value, ")")) {
+        if (string_equals(token->value, ")")) {
+            fprintf(output, "<symbol> %s </symbol>\n", token->value);
+        } else {
             fprintf(stderr, "Error(%lld): Missing ')' in subroutine call\n", token->line_number);
             return;
         }
-        
-        fprintf(output, "<symbol> %s </symbol>\n", token->value);
         
     } else {
         fprintf(stderr, "Error(%lld): Malformed 'do' instruction %s for subroutine call\n", token->line_number, token->value);
@@ -1064,14 +1161,25 @@ inline
 void compile_expression_list(Tokenizer *tokenizer, FILE *output)
 {
     fprintf(output, "<expressionList>\n");
-    
-    // TODO(julio): only compiles 1 parameter. Make it multiple
-    Token *eval_next_token = tokenizer->current_token->next;
-    if (!string_equals(eval_next_token->value, ")")) {
+
+    Token *token = tokenizer->current_token; // Initially, current_token should be '('
+    while (true) {
+        if (string_equals(token->next->value, ")")) {
+            token = next_token(tokenizer);
+            break;
+        }
+
         compile_expression(tokenizer, output);
+
+        token = next_token(tokenizer);
+        if (string_equals(token->value, ",")) {
+            fprintf(output, "<symbol> %s </symbol>\n", token->value);
+            //            token = next_token(tokenizer);
+        } else {
+            break;
+        }
+        
     }
-    
-    Token *token = next_token(tokenizer);
     
     fprintf(output, "</expressionList>\n");
 }
@@ -1242,7 +1350,7 @@ void process_file(FILE *file, FILE *output)
 
 int main()
 {
-    printf("Starting compilation...");
+    printf("Starting compilation...\n");
     
     int status_code = 0;
     
@@ -1257,7 +1365,7 @@ int main()
     }
     
     char *filename = "Seven/Main.jack";
-    //char *filename = "Square/Main.jack";
+    //char *filename = "Square/Square.jack";
     //char *filename = "ArrayTest/Main.jack";
     FILE *file = fopen(filename, "r");
     if (!file) {
@@ -1267,13 +1375,23 @@ int main()
     }
     
     process_file(file, output);
+
     
-    free_resources:
+ free_resources:
     if (file) fclose(file);
     if (output) fclose(output);
+
+#if 0
+    for (auto& s : symbol_table_classes) {
+        free(s.first);
+    }
+
+    for (auto& s : symbol_table_subroutines) {
+        free(s.first);
+    }
+#endif    
     
-    
-    printf(" Done\n");
+    printf("Done\n");
     
     return status_code;
 }
