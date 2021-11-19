@@ -88,7 +88,7 @@ char* read_line(FILE *file)
                     line[0] = '\0';
                 } else if (same_line) {
                     line[index_start_multiline_comment] = '\0';
-
+                    
                     // TODO: Trim line because the left blanks are considered to be part of the next line
                 } else {
                     break;
@@ -310,19 +310,6 @@ void insert_token(Tokens *tokens, char value[], int len, u64 line_number, Token_
     }
 }
 
-void free_tokens(Tokens *tokens)
-{
-    if (tokens == NULL) return;
-    
-    Token *token = tokens->head;
-    while (token != NULL) {
-        Token *current = token;
-        token = token->next;
-        free(current->value);
-        free(current);
-    }
-}
-
 enum TOKENIZER_STATE {
     TOKENIZER_STATE_START_TOKEN,
     TOKENIZER_STATE_END_TOKEN,
@@ -485,6 +472,21 @@ Tokenizer* tokenize(FILE *file)
     return tokenizer;
 }
 
+void free_tokenizer(Tokenizer *tokenizer)
+{
+    Token *token = tokenizer->tokens->head;
+    while (token != NULL)
+    {
+        Token *next_token = token->next;
+        free(token->value);
+        free(token);
+        
+        token = next_token;
+    }
+    
+    free(tokenizer);
+}
+
 Token* next_token(Tokenizer *tokenizer)
 {
     if (tokenizer->current_token != NULL) {
@@ -517,13 +519,104 @@ struct Symbol_Entry {
     char *name;
     char *type;
     char *kind;
-    //SYMBOL_ENTRY_CATEGORY category;
     int index;
+    Symbol_Entry *next;
 };
+
+void free_symbol_entry(Symbol_Entry *entry)
+{
+    while (entry != NULL)
+    {
+        Symbol_Entry *next_entry = entry->next;
+        free(entry->name);
+        free(entry->type);
+        free(entry->kind);
+        free(entry);
+        entry = next_entry;
+    }
+}
 
 
 global std::map<char *, Symbol_Entry *, cmp_str> symbol_table_classes;
 global std::map<char *, Symbol_Entry *, cmp_str> symbol_table_subroutines;
+
+void add_value_symbol_table_classes(char *key, Symbol_Entry *value)
+{
+    int index = 0;
+    Symbol_Entry *entry = symbol_table_classes[key];
+    if (entry == NULL)
+    {
+        value->index = index;
+        symbol_table_classes[key] = value;
+    }
+    else
+    {
+        Symbol_Entry *same_kind = NULL;
+        while (entry != NULL)
+        {
+            if (strcmp(entry->kind, value->kind) == 0)
+            {
+                ++index;
+                same_kind = entry;
+            }
+            
+            if (entry->next == NULL) break;
+            
+            entry = entry->next;
+        }
+        
+        value->index = index;
+        if (same_kind == NULL) 
+        {
+            value->next = entry->next;
+            entry->next = value;
+        }
+        else
+        {
+            value->next = same_kind->next;
+            same_kind->next = value;
+        }
+    }
+}
+
+void add_value_symbol_table_subroutines(char *key, Symbol_Entry *value)
+{
+    int index = 0;
+    Symbol_Entry *entry = symbol_table_subroutines[key];
+    if (entry == NULL)
+    {
+        value->index = index;
+        symbol_table_subroutines[key] = value;
+    }
+    else
+    {
+        Symbol_Entry *same_kind = NULL;
+        while (entry != NULL)
+        {
+            if (strcmp(entry->kind, value->kind) == 0)
+            {
+                ++index;
+                same_kind = entry;
+            }
+            
+            if (entry->next == NULL) break;
+            
+            entry = entry->next;
+        }
+        
+        value->index = index;
+        if (same_kind == NULL) 
+        {
+            value->next = entry->next;
+            entry->next = value;
+        }
+        else
+        {
+            value->next = same_kind->next;
+            same_kind->next = value;
+        }
+    }
+}
 
 
 
@@ -543,7 +636,7 @@ void compile_expression(Tokenizer *tokenizer, FILE *output);
 void compile_term(Tokenizer *tokenizer, FILE *output);
 void compile_do(Tokenizer *tokenizer, FILE *output);
 void compile_subroutine_call(Tokenizer *tokenizer, FILE *output);
-void compile_expression_list(Tokenizer *tokenizer, FILE *output);
+int  compile_expression_list(Tokenizer *tokenizer, FILE *output);
 void compile_return(Tokenizer *tokenizer, FILE *output);
 void compile_if(Tokenizer *tokenizer, FILE *output);
 void compile_while(Tokenizer *tokenizer, FILE *output);
@@ -554,15 +647,13 @@ void parse(Tokenizer *tokenizer, FILE *output)
     Token *token = tokenizer->current_token;
     if (token == NULL || !string_equals(token->value, "class")) {
         printf("Error(%lld): The file should start with a class definition.\n", token->line_number);
-        free_tokens(tokenizer->tokens);
         return;
     }
     
     compile_class(tokenizer, output);
-    
-    free_tokens(tokenizer->tokens);
 }
 
+char *class_name;
 
 inline
 void compile_class(Tokenizer *tokenizer, FILE *output)
@@ -575,8 +666,9 @@ void compile_class(Tokenizer *tokenizer, FILE *output)
         return;
     }
     
+    class_name = token->value;
     fprintf(output, "<keyword> class </keyword>\n");
-    fprintf(output, "<identifier> %s </identifier>\n", token->value);
+    fprintf(output, "<identifier> %s </identifier>\n", class_name);
     
     token = next_token(tokenizer);
     if (string_equals(token->value, "{")) {
@@ -586,17 +678,17 @@ void compile_class(Tokenizer *tokenizer, FILE *output)
         return;
     }
     
-
+    
     token = next_token(tokenizer);
     while (string_equals(token->value, "static")
            || string_equals(token->value, "field")) {
         
         compile_class_var_dec(tokenizer, output);
-
+        
         token = next_token(tokenizer);
     }
     
-
+    
     token = tokenizer->current_token;
     while (string_equals(token->value, "constructor")
            || string_equals(token->value, "function")
@@ -626,39 +718,42 @@ void compile_class_var_dec(Tokenizer *tokenizer, FILE *output)
     fprintf(output, "<classVarDec>\n");
     
     Token *token = tokenizer->current_token;
-    char *kind = token->value;
+    char *kind = (char *) malloc(strlen(token->value) + 1);
+    strcpy(kind, token->value);
+    
     fprintf(output, "<keyword> %s </keyword>\n", kind);
     
-
+    
     token = next_token(tokenizer);
-    char *type = token->value;
+    char *type = (char *) malloc(strlen(token->value) + 1);
+    strcpy(type, token->value);
     if (token->type == TOKEN_TYPE_KEYWORD) {
         fprintf(output, "<keyword> %s </keyword>\n", type);
     } else {
         fprintf(stderr, "Error(%lld): Specify type for class variable declaration\n", token->line_number);
         return;
     }
-
-
+    
+    
     while (true) {
         token = next_token(tokenizer);
         if (token->type == TOKEN_TYPE_IDENTIFIER) {
-            char *name = token->value;
+            char *name = (char *) malloc(strlen(token->value) + 1);
+            strcpy(name, token->value);
             fprintf(output, "<identifier> %s </identifier>\n", name);
-
-        
+            
+            
             Symbol_Entry *entry = (Symbol_Entry *) malloc(sizeof(Symbol_Entry));
             entry->name = name;
             entry->type = type;
             entry->kind = kind;
-            entry->index = 0;
-        
-            symbol_table_classes["class"] = entry;
+            
+            add_value_symbol_table_classes(class_name, entry);
         } else {
             fprintf(stderr, "Error(%lld): Specify name for class variable declaration\n", token->line_number);
             return;
         }
-
+        
         Token *eval_next_token = token->next;
         if (string_equals(eval_next_token->value, ",")) {
             token = next_token(tokenizer);
@@ -682,6 +777,8 @@ void compile_class_var_dec(Tokenizer *tokenizer, FILE *output)
 }
 
 
+char *subroutine_name;
+int arg_number;
 
 inline
 void compile_subroutine(Tokenizer *tokenizer, FILE *output)
@@ -692,7 +789,11 @@ void compile_subroutine(Tokenizer *tokenizer, FILE *output)
     fprintf(output, "<keyword> %s </keyword>\n", token->value);
     
     token = next_token(tokenizer);
-    if (string_equals(token->value, "void") || token->type == TOKEN_TYPE_IDENTIFIER) {
+    if (string_equals(token->value, "void") 
+        || string_equals(token->value, "int")
+        || string_equals(token->value, "char")
+        || string_equals(token->value, "boolean")
+        || token->type == TOKEN_TYPE_IDENTIFIER) {
         fprintf(output, "<keyword> %s </keyword>\n", token->value);
     } else {
         fprintf(stderr, "Error(%lld): Invalid identifier: %s\n", token->line_number, token->value);
@@ -700,8 +801,8 @@ void compile_subroutine(Tokenizer *tokenizer, FILE *output)
     }
     
     token = next_token(tokenizer);
-    fprintf(output, "<identifier> %s </identifier>\n", token->value);
-    
+    subroutine_name = token->value;
+    fprintf(output, "<identifier> %s </identifier>\n", subroutine_name);
     
     token = next_token(tokenizer);
     if (string_equals(token->value, "(")) {
@@ -713,6 +814,8 @@ void compile_subroutine(Tokenizer *tokenizer, FILE *output)
     
     compile_parameter_list(tokenizer, output);
     
+    fprintf(stdout, "function %s.%s %d\n", class_name, subroutine_name, arg_number);
+    
     token = next_token(tokenizer);
     if (string_equals(token->value, ")")) {
         fprintf(output, "<symbol> %s </symbol>\n", token->value);
@@ -723,6 +826,7 @@ void compile_subroutine(Tokenizer *tokenizer, FILE *output)
     
     compile_subroutine_body(tokenizer, output);
     
+    fprintf(stdout, "return\n");
     fprintf(output, "</subroutineDec>\n");
 }
 
@@ -733,6 +837,18 @@ void compile_parameter_list(Tokenizer *tokenizer, FILE *output)
 {
     fprintf(output, "<parameterList>\n");
     
+    arg_number = 0;
+    
+    Symbol_Entry *entry = (Symbol_Entry *) malloc(sizeof(Symbol_Entry));
+    entry->name = (char *) malloc(strlen("this") + 1);
+    strcpy(entry->name, "this");
+    entry->type = (char *) malloc(strlen(class_name) + 1);
+    strcpy(entry->type, class_name);
+    entry->kind = (char *) malloc(strlen("argument") + 1);
+    strcpy(entry->kind, "argument");
+    
+    add_value_symbol_table_subroutines(subroutine_name, entry);
+    
     Token *token = tokenizer->current_token;
     while (true) {
         // No parameters
@@ -741,26 +857,40 @@ void compile_parameter_list(Tokenizer *tokenizer, FILE *output)
         }
         
         token = next_token(tokenizer);
+        char *type = (char *) malloc(strlen(token->value) + 1);
+        strcpy(type, token->value);
         if (token->type == TOKEN_TYPE_IDENTIFIER) {
-            fprintf(output, "<identifier> %s </identifier>\n", token->value);
+            fprintf(output, "<identifier> %s </identifier>\n", type);
         } else if (string_equals(token->value, "int")
                    || string_equals(token->value, "char")
                    || string_equals(token->value, "boolean")) {
-        
-            fprintf(output, "<keyword> %s </keyword>\n", token->value);
+            
+            fprintf(output, "<keyword> %s </keyword>\n", type);
         } else {
             fprintf(stderr, "Error(%lld): Specify type for parameter declaration\n", token->line_number);
             return;
         }
-
+        
         token = next_token(tokenizer);
         if (token->type == TOKEN_TYPE_IDENTIFIER) {
-            fprintf(output, "<identifier> %s </identifier>\n", token->value);
+            char *name = (char *) malloc(strlen(token->value) + 1);
+            strcpy(name, token->value);
+            fprintf(output, "<identifier> %s </identifier>\n", name);
+            
+            Symbol_Entry *entry = (Symbol_Entry *) malloc(sizeof(Symbol_Entry));
+            entry->name = name;
+            entry->type = type;
+            entry->kind = (char *) malloc(strlen("argument") + 1);
+            strcpy(entry->kind, "argument");
+            
+            add_value_symbol_table_subroutines(subroutine_name, entry);
+            
+            ++arg_number;
         } else {
             fprintf(stderr, "Error(%lld): Specify name for parameter declaration\n", token->line_number);
             return;
         }
-
+        
         Token *eval_next_token = token->next;
         if (string_equals(eval_next_token->value, ",")) {
             token = next_token(tokenizer);
@@ -769,14 +899,18 @@ void compile_parameter_list(Tokenizer *tokenizer, FILE *output)
             break;
         }
     }
-
+    
     fprintf(output, "</parameterList>\n");
 }
+
+int subroutine_var_count;
 
 inline
 void compile_subroutine_body(Tokenizer *tokenizer, FILE *output)
 {
     fprintf(output, "<subroutineBody>\n");
+    
+    subroutine_var_count = 0;
     
     Token *token = next_token(tokenizer);
     if (string_equals(token->value, "{")) {
@@ -820,13 +954,16 @@ void compile_var_dec(Tokenizer *tokenizer, FILE *output)
     fprintf(output, "<keyword> %s </keyword>\n", token->value);
     
     token = next_token(tokenizer);
+    char *type = (char *) malloc(strlen(token->value) + 1);
+    strcpy(type, token->value);
+    
     if (token->type == TOKEN_TYPE_IDENTIFIER) {
-        fprintf(output, "<identifier> %s </identifier>\n", token->value);
+        fprintf(output, "<identifier> %s </identifier>\n", type);
     } else if (string_equals(token->value, "int")
                || string_equals(token->value, "char")
                || string_equals(token->value, "boolean")) {
         
-        fprintf(output, "<keyword> %s </keyword>\n", token->value);
+        fprintf(output, "<keyword> %s </keyword>\n", type);
     } else {
         fprintf(stderr, "Error(%lld): Specify type for variable declaration\n", token->line_number);
         return;
@@ -835,8 +972,20 @@ void compile_var_dec(Tokenizer *tokenizer, FILE *output)
     
     while (true) {
         token = next_token(tokenizer);
+        char *variable_name = (char *) malloc(strlen(token->value) + 1);
+        strcpy(variable_name, token->value);
+        
         if (token->type == TOKEN_TYPE_IDENTIFIER) {
-            fprintf(output, "<identifier> %s </identifier>\n", token->value);
+            fprintf(output, "<identifier> %s </identifier>\n", variable_name);
+            
+            Symbol_Entry *entry = (Symbol_Entry *) malloc(sizeof(Symbol_Entry));
+            entry->name = variable_name;
+            entry->type = type;
+            entry->kind = (char *) malloc(strlen("var") + 1);
+            strcpy(entry->kind, "var");
+            
+            add_value_symbol_table_subroutines(subroutine_name, entry);
+            
         } else {
             fprintf(stderr, "Error(%lld): Specify name for variable declaration\n", token->line_number);
             return;
@@ -918,7 +1067,8 @@ void compile_let(Tokenizer *tokenizer, FILE *output)
         return;
     }
     
-    fprintf(output, "<identifier> %s </identifier>\n", token->value);
+    char *variable_name = token->value;
+    fprintf(output, "<identifier> %s </identifier>\n", variable_name);
     
     token = next_token(tokenizer);
     if (string_equals(token->value, "[")) {
@@ -947,6 +1097,8 @@ void compile_let(Tokenizer *tokenizer, FILE *output)
     
     compile_expression(tokenizer, output);
     
+    int variable_index = 0; // TODO: lookup index in map with key "variable_name"
+    fprintf(stdout, "pop local %d\n", variable_index);
     
     token = next_token(tokenizer);
     if (!string_equals(token->value, ";")) {
@@ -961,33 +1113,45 @@ void compile_let(Tokenizer *tokenizer, FILE *output)
 }
 
 inline
+void do_compile_expression(Tokenizer *tokenizer, FILE *output)
+{
+    Token *token = next_token(tokenizer);
+    compile_term(tokenizer, output);
+    
+    Token *eval_next_token = tokenizer->current_token->next;
+    if (   string_equals(eval_next_token->value, "+")
+        || string_equals(eval_next_token->value, "-")
+        || string_equals(eval_next_token->value, "*")
+        || string_equals(eval_next_token->value, "/")
+        || string_equals(eval_next_token->value, "&")
+        || string_equals(eval_next_token->value, "|")
+        || string_equals(eval_next_token->value, "&lt;")
+        || string_equals(eval_next_token->value, "&gt;")
+        || string_equals(eval_next_token->value, "="))
+    {
+        token = next_token(tokenizer);
+        fprintf(output, "<symbol> %s </symbol>\n", token->value);
+        
+        do_compile_expression(tokenizer, output);
+        
+        if (string_equals(token->value, "+"))
+        {
+            fprintf(stdout, "add\n");
+        }
+        else if (string_equals(token->value, "*"))
+        {
+            fprintf(stdout, "call Math.multiply 2\n");
+        }
+    }
+}
+
+
+inline
 void compile_expression(Tokenizer *tokenizer, FILE *output)
 {
     fprintf(output, "<expression>\n");
     
-    while (true) {
-        Token *token = next_token(tokenizer);
-        compile_term(tokenizer, output);
-        
-        Token *eval_next_token = tokenizer->current_token->next;
-        if (   string_equals(eval_next_token->value, "+")
-            || string_equals(eval_next_token->value, "-")
-            || string_equals(eval_next_token->value, "*")
-            || string_equals(eval_next_token->value, "/")
-            || string_equals(eval_next_token->value, "&")
-            || string_equals(eval_next_token->value, "|")
-            || string_equals(eval_next_token->value, "&lt;")
-            || string_equals(eval_next_token->value, "&gt;")
-            || string_equals(eval_next_token->value, "="))
-        {
-            token = next_token(tokenizer);
-            fprintf(output, "<symbol> %s </symbol>\n", token->value);
-        }
-        else
-        {
-            break;
-        }
-    }
+    do_compile_expression(tokenizer, output);
     
     fprintf(output, "</expression>\n");
 }
@@ -1029,7 +1193,9 @@ void compile_term(Tokenizer *tokenizer, FILE *output)
     }
     else if (token->type == TOKEN_TYPE_INT_CONSTANT)
     {
-        fprintf(output, "<integerConstant> %s </integerConstant>\n", token->value);
+        int int_constant = atoi(token->value);
+        fprintf(output, "<integerConstant> %d </integerConstant>\n", int_constant);
+        fprintf(stdout, "push constant %d\n", int_constant);
     }
     else if (token->type == TOKEN_TYPE_STRING_CONSTANT)
     {
@@ -1042,6 +1208,16 @@ void compile_term(Tokenizer *tokenizer, FILE *output)
     { // Keyword constants
         
         fprintf(output, "<keyword> %s </keyword>\n", token->value);
+        
+        if (string_equals(token->value, "true"))
+        {
+            fprintf(stdout, "push constant 0\n");
+            fprintf(stdout, "not\n");
+        }
+        else if (string_equals(token->value, "false"))
+        {
+            fprintf(stdout, "push constant 0\n");
+        }
     }
     else if (string_equals(token->value, "-")
              || string_equals(token->value, "~"))
@@ -1050,6 +1226,11 @@ void compile_term(Tokenizer *tokenizer, FILE *output)
         
         next_token(tokenizer);
         compile_term(tokenizer, output);
+        
+        if (string_equals(token->value, "-"))
+        {
+            fprintf(stdout, "neg\n");
+        }
     }
     else if (string_equals(token->value, "("))
     {
@@ -1081,6 +1262,8 @@ void compile_do(Tokenizer *tokenizer, FILE *output)
     next_token(tokenizer);
     compile_subroutine_call(tokenizer, output);
     
+    fprintf(stdout, "pop temp 0\n");
+    
     
     token = next_token(tokenizer);
     if (!string_equals(token->value, ";")) {
@@ -1103,13 +1286,16 @@ void compile_subroutine_call(Tokenizer *tokenizer, FILE *output)
         return;
     }
     
-    fprintf(output, "<identifier> %s </identifier>\n", token->value);
+    char *subroutine_call_name = token->value;
+    fprintf(output, "<identifier> %s </identifier>\n", subroutine_call_name);
     
     token = next_token(tokenizer);
     if (string_equals(token->value, "(")) {
         fprintf(output, "<symbol> %s </symbol>\n", token->value);
         
-        compile_expression_list(tokenizer, output);
+        int expression_count = compile_expression_list(tokenizer, output);
+        
+        fprintf(stdout, "call %s %d\n", subroutine_call_name, expression_count);
         
         token = tokenizer->current_token;
         if (!string_equals(token->value, ")")) {
@@ -1117,6 +1303,8 @@ void compile_subroutine_call(Tokenizer *tokenizer, FILE *output)
             return;
         }
     } else if (string_equals(token->value, ".")) {
+        char *class_var_caller = subroutine_call_name;
+        
         fprintf(output, "<symbol> %s </symbol>\n", token->value);
         
         token = next_token(tokenizer);
@@ -1125,7 +1313,8 @@ void compile_subroutine_call(Tokenizer *tokenizer, FILE *output)
             return;
         }
         
-        fprintf(output, "<identifier> %s </identifier>\n", token->value);
+        subroutine_call_name = token->value;
+        fprintf(output, "<identifier> %s </identifier>\n", subroutine_call_name);
         
         token = next_token(tokenizer);
         if (string_equals(token->value, "(")) {
@@ -1136,8 +1325,9 @@ void compile_subroutine_call(Tokenizer *tokenizer, FILE *output)
         }
         
         
-        compile_expression_list(tokenizer, output);
+        int expression_count = compile_expression_list(tokenizer, output);
         
+        fprintf(stdout, "call %s.%s %d\n", class_var_caller, subroutine_call_name, expression_count);
         
         token = tokenizer->current_token;
         if (string_equals(token->value, ")")) {
@@ -1148,7 +1338,7 @@ void compile_subroutine_call(Tokenizer *tokenizer, FILE *output)
         }
         
     } else {
-        fprintf(stderr, "Error(%lld): Malformed 'do' instruction %s for subroutine call\n", token->line_number, token->value);
+        fprintf(stderr, "Error(%lld): Malformed %s for subroutine call\n", token->line_number, token->value);
         return;
     }
 }
@@ -1158,23 +1348,25 @@ void compile_subroutine_call(Tokenizer *tokenizer, FILE *output)
 // NOT next_token function.
 //
 inline
-void compile_expression_list(Tokenizer *tokenizer, FILE *output)
+int compile_expression_list(Tokenizer *tokenizer, FILE *output)
 {
+    int expression_count = 0;
     fprintf(output, "<expressionList>\n");
-
+    
     Token *token = tokenizer->current_token; // Initially, current_token should be '('
     while (true) {
         if (string_equals(token->next->value, ")")) {
             token = next_token(tokenizer);
             break;
         }
-
+        
         compile_expression(tokenizer, output);
-
+        
+        ++expression_count;
+        
         token = next_token(tokenizer);
         if (string_equals(token->value, ",")) {
             fprintf(output, "<symbol> %s </symbol>\n", token->value);
-            //            token = next_token(tokenizer);
         } else {
             break;
         }
@@ -1182,6 +1374,8 @@ void compile_expression_list(Tokenizer *tokenizer, FILE *output)
     }
     
     fprintf(output, "</expressionList>\n");
+    
+    return expression_count;
 }
 
 inline
@@ -1192,11 +1386,22 @@ void compile_return(Tokenizer *tokenizer, FILE *output)
     Token *token = tokenizer->current_token;
     fprintf(output, "<keyword> %s </keyword>\n", token->value);
     
-    token = next_token(tokenizer);
-    if (string_equals(token->value, ";")) {
+    Token *eval_next_token = token->next;
+    if (string_equals(eval_next_token->value, ";")) {
+        token = next_token(tokenizer);
         fprintf(output, "<symbol> %s </symbol>\n", token->value);
+        
+        fprintf(stdout, "push constant 0\n");
     } else {
         compile_expression(tokenizer, output);
+        
+        token = next_token(tokenizer);
+        if (string_equals(token->value, ";")) {
+            fprintf(output, "<symbol> %s </symbol>\n", token->value);
+        } else {
+            fprintf(stderr, "Error(%lld): Missing ';' in return statement\n", token->line_number);
+            return;
+        }
     }
     
     fprintf(output, "</returnStatement>\n");
@@ -1263,7 +1468,7 @@ void compile_if(Tokenizer *tokenizer, FILE *output)
         if (string_equals(token->value, "{")) {
             fprintf(output, "<symbol> %s </symbol>\n", token->value);
         } else {
-            fprintf(stderr, "Error(%lld): Missing '{' in if statement\n", token->line_number);
+            fprintf(stderr, "Error(%lld): Missing '{' in else statement\n", token->line_number);
             return;
         }
         
@@ -1275,7 +1480,7 @@ void compile_if(Tokenizer *tokenizer, FILE *output)
         if (string_equals(token->value, "}")) {
             fprintf(output, "<symbol> %s </symbol>\n", token->value);
         } else {
-            fprintf(stderr, "Error(%lld): Missing '}' in if statement\n", token->line_number);
+            fprintf(stderr, "Error(%lld): Missing '}' in else statement\n", token->line_number);
             return;
         }
         
@@ -1346,6 +1551,8 @@ void process_file(FILE *file, FILE *output)
     if (tokenizer->tokens) {
         parse(tokenizer, output);
     }
+    
+    free_tokenizer(tokenizer);
 }
 
 int main()
@@ -1354,9 +1561,8 @@ int main()
     
     int status_code = 0;
     
-    char *output_filename = "Seven/Parsed.xml";
-    //char *output_filename = "Square/Parsed.xml";
-    //char *output_filename = "ArrayTest/Parsed.xml";
+    //char *output_filename = "Seven/Parsed.xml";
+    char *output_filename = "ConvertToBin/Parsed.xml";
     FILE *output = fopen(output_filename, "w");
     if (!output) {
         printf("Could not open file %s to write on.", output_filename);
@@ -1364,9 +1570,8 @@ int main()
         goto free_resources;
     }
     
-    char *filename = "Seven/Main.jack";
-    //char *filename = "Square/Square.jack";
-    //char *filename = "ArrayTest/Main.jack";
+    //char *filename = "Seven/Main.jack";
+    char *filename = "ConvertToBin/Main.jack";
     FILE *file = fopen(filename, "r");
     if (!file) {
         printf("Could not open file %s.\n", filename);
@@ -1375,21 +1580,22 @@ int main()
     }
     
     process_file(file, output);
-
     
- free_resources:
+    
+    free_resources:
     if (file) fclose(file);
     if (output) fclose(output);
-
-#if 0
+    
     for (auto& s : symbol_table_classes) {
-        free(s.first);
+        Symbol_Entry *entry = s.second;
+        free_symbol_entry(entry);
     }
-
+    
     for (auto& s : symbol_table_subroutines) {
-        free(s.first);
+        Symbol_Entry *entry = s.second;
+        free_symbol_entry(entry);
     }
-#endif    
+    
     
     printf("Done\n");
     
