@@ -1500,7 +1500,7 @@ void compile_subroutine_call(Tokenizer *tokenizer, FILE *output_xml, FILE *outpu
         int expression_count = compile_expression_list(tokenizer, output_xml, output_vm);
 
         Symbol_Entry *entry = get_variable_entry_from_subroutine(subroutine_call_name, "this");
-        if (entry != NULL) expression_count = 1;
+        if (entry != NULL) ++expression_count;
 
         if (generate_file == 1) fprintf(output_vm, "push pointer 0\n");
         if (generate_file == 1) fprintf(output_vm, "call %s.%s %d\n", class_name, subroutine_call_name, expression_count);
@@ -1535,7 +1535,10 @@ void compile_subroutine_call(Tokenizer *tokenizer, FILE *output_xml, FILE *outpu
         
         
         int expression_count = compile_expression_list(tokenizer, output_xml, output_vm);
-        Symbol_Entry *variable_entry = get_variable_entry_from_subroutine(subroutine_call_name, variable_caller);
+        Symbol_Entry *variable_entry = get_variable_entry_from_subroutine(subroutine_name, variable_caller);
+
+        if (variable_entry != NULL) ++expression_count;
+
         if (variable_entry == NULL)
         {
             variable_entry = get_variable_entry_from_class(class_name, variable_caller);
@@ -1553,7 +1556,7 @@ void compile_subroutine_call(Tokenizer *tokenizer, FILE *output_xml, FILE *outpu
             }
             else
             {
-                if (generate_file == 1) fprintf(output_vm, "push this 0\n");
+                if (generate_file == 1) fprintf(output_vm, "push %s %d\n", variable_entry->kind, variable_entry->index);
                 if (generate_file == 1) fprintf(output_vm, "call %s.%s %d\n", variable_entry->type, subroutine_call_name, expression_count);
             }
         }
@@ -1832,18 +1835,6 @@ int main()
     printf("Starting compilation...\n");
     
     int status_code = 0;
-
-#if 0
-    //char *output_filename = "Seven/Parsed.xml";
-    //char *output_filename = "ConvertToBin/Parsed.xml";
-    char *output_filename = "Square/SquareGame.xml";
-    FILE *output = fopen(output_filename, "w");
-    if (!output) {
-        printf("Could not open file %s to write on.", output_filename);
-        status_code = 1;
-        goto free_resources;
-    }
-#endif
     
     char *foldername = "Square";
     
@@ -1906,23 +1897,6 @@ int main()
 
         generate_file = 1;
     }
-    
-    
-    //char *filename = "Seven/Main.jack";
-    //char *filename = "ConvertToBin/Main.jack";
-#if 0
-    char *filename = "Square/SquareGame.jack";
-    FILE *file = fopen(filename, "r");
-    if (!file) {
-        printf("Could not open file %s.\n", filename);
-        status_code = 1;
-        goto free_resources;
-    }
-    
-    process_file(file, output);
-#endif
-    
-    
     
     
     free_resources:

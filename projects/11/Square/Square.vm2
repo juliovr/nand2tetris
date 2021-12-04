@@ -76,14 +76,14 @@ if-goto IF_TRUE17
 goto IF_FALSE17
 label IF_TRUE17
 push pointer 0
-call Square.erase 1
+call Square.erase 2
 pop temp 0
 push this 2
 push constant 2
 add
 pop this 2
 push pointer 0
-call Square.draw 1
+call Square.draw 2
 pop temp 0
 goto IF_END17
 label IF_FALSE17
@@ -100,14 +100,14 @@ if-goto IF_TRUE18
 goto IF_FALSE18
 label IF_TRUE18
 push pointer 0
-call Square.erase 1
+call Square.erase 2
 pop temp 0
 push this 2
 push constant 2
 sub
 pop this 2
 push pointer 0
-call Square.draw 1
+call Square.draw 2
 pop temp 0
 goto IF_END18
 label IF_FALSE18
