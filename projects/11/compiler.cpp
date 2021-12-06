@@ -1184,9 +1184,13 @@ void compile_let(Tokenizer *tokenizer, FILE *output_xml, FILE *output_vm)
     
     char *variable_name = token->value;
     fprintf(output_xml, "<identifier> %s </identifier>\n", variable_name);
-    
+
+
+    bool array_variable = false;
     token = next_token(tokenizer);
     if (string_equals(token->value, "[")) {
+        array_variable = true;
+        
         fprintf(output_xml, "<symbol> %s </symbol>\n", token->value);
         
         compile_expression(tokenizer, output_xml, output_vm);
@@ -1198,6 +1202,20 @@ void compile_let(Tokenizer *tokenizer, FILE *output_xml, FILE *output_vm)
         }
         
         fprintf(output_xml, "<symbol> %s </symbol>\n", token->value);
+
+        Symbol_Entry *entry = get_variable_entry_from_subroutine(subroutine_name, variable_name);
+        if (entry == NULL)
+        {
+            entry = get_variable_entry_from_class(class_name, variable_name);
+            if (entry == NULL)
+            {
+                fprintf(stderr, "Error(%lld): Variable %s is not defined\n", token->line_number, variable_name);
+                return;
+            }
+        }
+
+        fprintf(output_vm, "push %s %d\n", entry->kind, entry->index);
+        fprintf(output_vm, "add\n");
         
         token = next_token(tokenizer);
     }
@@ -1211,20 +1229,31 @@ void compile_let(Tokenizer *tokenizer, FILE *output_xml, FILE *output_vm)
     
     
     compile_expression(tokenizer, output_xml, output_vm);
-    
-    Symbol_Entry *entry = get_variable_entry_from_subroutine(subroutine_name, variable_name);
-    if (entry == NULL)
+
+    if (array_variable)
     {
-        entry = get_variable_entry_from_class(class_name, variable_name);
+        if (generate_file == 1) fprintf(output_vm, "pop temp 0\n");
+        if (generate_file == 1) fprintf(output_vm, "pop pointer 1\n");
+        if (generate_file == 1) fprintf(output_vm, "push temp 0\n");
+        if (generate_file == 1) fprintf(output_vm, "pop that 0\n");
+        
+    }
+    else
+    {
+        Symbol_Entry *entry = get_variable_entry_from_subroutine(subroutine_name, variable_name);
         if (entry == NULL)
         {
-            fprintf(stderr, "Error(%lld): Variable %s is not defined\n", token->line_number, variable_name);
-            return;
+            entry = get_variable_entry_from_class(class_name, variable_name);
+            if (entry == NULL)
+            {
+                fprintf(stderr, "Error(%lld): Variable %s is not defined\n", token->line_number, variable_name);
+                return;
+            }
         }
+        
+        if (generate_file == 1) fprintf(output_vm, "pop %s %d\n", entry->kind, entry->index);
     }
-    
-    if (generate_file == 1) fprintf(output_vm, "pop %s %d\n", entry->kind, entry->index);
-    
+
     
     token = next_token(tokenizer);
     if (!string_equals(token->value, ";")) {
@@ -1242,6 +1271,7 @@ inline
 void do_compile_expression(Tokenizer *tokenizer, FILE *output_xml, FILE *output_vm)
 {
     Token *token = next_token(tokenizer);
+
     compile_term(tokenizer, output_xml, output_vm);
     
     Token *eval_next_token = tokenizer->current_token->next;
@@ -1323,12 +1353,28 @@ void compile_term(Tokenizer *tokenizer, FILE *output_xml, FILE *output_vm)
         // Array
         if (string_equals(eval_next_token->value, "["))
         {
-            fprintf(output_xml, "<identifier> %s </identifier>\n", token->value);
+            char *array_variable_name = token->value;
+            fprintf(output_xml, "<identifier> %s </identifier>\n", array_variable_name);
             
             token = next_token(tokenizer);
             fprintf(output_xml, "<symbol> %s </symbol>\n", token->value);
+
             
             compile_expression(tokenizer, output_xml, output_vm);
+
+            
+            Symbol_Entry *entry = get_variable_entry_from_subroutine(subroutine_name, array_variable_name);
+            if (entry == NULL)
+            {
+                entry = get_variable_entry_from_class(class_name, array_variable_name);
+                if (entry == NULL)
+                {
+                    fprintf(stderr, "Error(%lld): Variable %s is not defined\n", token->line_number, array_variable_name);
+                    return;
+                }
+            }
+            
+            if (generate_file == 1) fprintf(output_vm, "push %s %d\n", entry->kind, entry->index);
             
             token = next_token(tokenizer);
             if (string_equals(token->value, "]")) {
@@ -1337,13 +1383,19 @@ void compile_term(Tokenizer *tokenizer, FILE *output_xml, FILE *output_vm)
                 fprintf(stderr, "Error(%lld): Missing ']' in array term\n", token->line_number);
                 return;
             }
+
+            
+            if (generate_file == 1) fprintf(output_vm, "add\n");
+            if (generate_file == 1) fprintf(output_vm, "pop pointer 1\n");
+            if (generate_file == 1) fprintf(output_vm, "push that 0\n");
+            
         }
         else if (string_equals(eval_next_token->value, "(") || 
                  string_equals(eval_next_token->value, "."))
         {
             compile_subroutine_call(tokenizer, output_xml, output_vm);
         }
-        else
+        else // Normal variable
         {
             char *variable_name = token->value;
             Symbol_Entry *entry = get_variable_entry_from_subroutine(subroutine_name, variable_name);
@@ -1371,7 +1423,17 @@ void compile_term(Tokenizer *tokenizer, FILE *output_xml, FILE *output_vm)
     }
     else if (token->type == TOKEN_TYPE_STRING_CONSTANT)
     {
+        int string_length = (int) strlen(token->value);
         fprintf(output_xml, "<stringConstant> %s </stringConstant>\n", token->value);
+        fprintf(output_vm, "push constant %d\n", string_length);
+        fprintf(output_vm, "call String.new 1\n");
+
+        for (int i = 0; i < string_length; ++i)
+        {
+            int char_at_ascii = token->value[i];
+            fprintf(output_vm, "push constant %d\n", char_at_ascii);
+            fprintf(output_vm, "call String.appendChar 2\n");
+        }
     }
     else if (   string_equals(token->value, "true")
              || string_equals(token->value, "false")
@@ -1823,7 +1885,7 @@ int replace_str(char *i_str, char *i_orig, char *i_rep)
     
     l_origLen = strlen(i_orig);
     while (l_p = strstr(i_str, i_orig)) {
-        sprintf(l_before, "%.*s", l_p - i_str, i_str);
+        sprintf(l_before, "%.*s", (int) (l_p - i_str), i_str);
         sprintf(l_after, "%s", l_p + l_origLen);
         sprintf(i_str, "%s%s%s", l_before, i_rep, l_after);
     }
@@ -1836,7 +1898,7 @@ int main()
     
     int status_code = 0;
     
-    char *foldername = "Square";
+    char *foldername = "Average";
     
     add_symbol_table_os_subroutines();
 
@@ -1857,9 +1919,9 @@ int main()
         {
             if (!end_with(folder_entry->d_name, ".jack")) continue;
             
-            sprintf(filename, "Square/%s", folder_entry->d_name);
-            sprintf(filename_output, "Square/%s", folder_entry->d_name);
-            sprintf(filename_output_xml, "Square/%s", folder_entry->d_name);
+            sprintf(filename, "%s/%s", foldername, folder_entry->d_name);
+            sprintf(filename_output, "%s/%s", foldername, folder_entry->d_name);
+            sprintf(filename_output_xml, "%s/%s", foldername, folder_entry->d_name);
             
             replace_str(filename_output, ".jack", ".vm2");
             replace_str(filename_output_xml, ".jack", ".xml");
