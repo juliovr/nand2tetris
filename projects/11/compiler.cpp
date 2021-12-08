@@ -22,6 +22,10 @@ char filename_output_xml[FILENAME_BUFFER];
 
 int generate_file = 0;
 
+char *class_name;
+char *subroutine_name;
+char *function_or_method;
+
 
 inline
 char* read_line(FILE *file)
@@ -489,7 +493,7 @@ void free_tokenizer(Tokenizer *tokenizer)
         Token *next_token = token->next;
         free(token->value);
         free(token);
-        
+
         token = next_token;
     }
     
@@ -557,6 +561,8 @@ void add_symbol_table_os_subroutines()
     symbol_table_os_subroutines["Sys"]["wait"] = 1;
     symbol_table_os_subroutines["Screen"]["setColor"] = 1;
     symbol_table_os_subroutines["Screen"]["drawRectangle"] = 4;
+    symbol_table_os_subroutines["Math"]["abs"] = 1;
+    symbol_table_os_subroutines["Output"]["printString"] = 1;
 }
 
 
@@ -600,51 +606,11 @@ void add_value_symbol_table_classes(char *class_name_key, Symbol_Entry *value)
     }
 }
 
-void add_value_symbol_table_subroutines(char *subroutine_name_key, Symbol_Entry *value)
+Symbol_Entry* get_variable_entry_from_class(char *class_name, char *variable_name)
 {
-    int index = 0;
-    auto& entries_subroutines = symbol_table_subroutines[subroutine_name_key];
-    Symbol_Entry *entry = entries_subroutines[value->kind];
-    if (entry == NULL)
+    if (symbol_table_classes.find(class_name) != symbol_table_classes.end())
     {
-        value->index = index;
-        symbol_table_subroutines[subroutine_name_key][value->kind] = value;
-    }
-    else
-    {
-        Symbol_Entry *same_kind = NULL;
-        while (entry != NULL)
-        {
-            if (strcmp(entry->kind, value->kind) == 0)
-            {
-                ++index;
-                same_kind = entry;
-            }
-            
-            if (entry->next == NULL) break;
-            
-            entry = entry->next;
-        }
-        
-        value->index = index;
-        if (same_kind == NULL) 
-        {
-            value->next = entry->next;
-            entry->next = value;
-        }
-        else
-        {
-            value->next = same_kind->next;
-            same_kind->next = value;
-        }
-    }
-}
-
-Symbol_Entry* get_variable_entry_from_subroutine(char *subroutine_name, char *variable_name)
-{
-    if (symbol_table_subroutines.find(subroutine_name) != symbol_table_subroutines.end())
-    {
-        for (auto& symbol : symbol_table_subroutines[subroutine_name])
+        for (auto& symbol : symbol_table_classes[class_name])
         {
             Symbol_Entry *entry = symbol.second;
             
@@ -663,11 +629,54 @@ Symbol_Entry* get_variable_entry_from_subroutine(char *subroutine_name, char *va
     return NULL;
 }
 
-Symbol_Entry* get_variable_entry_from_class(char *class_name, char *variable_name)
+
+void add_value_symbol_table_subroutines(char *classname_subroutinename_key, Symbol_Entry *value)
 {
-    if (symbol_table_classes.find(class_name) != symbol_table_classes.end())
+    int index = 0;
+    auto& entries_subroutines = symbol_table_subroutines[classname_subroutinename_key];
+    Symbol_Entry *entry = entries_subroutines[value->kind];
+    if (entry == NULL)
     {
-        for (auto& symbol : symbol_table_classes[class_name])
+        value->index = index;
+        symbol_table_subroutines[classname_subroutinename_key][value->kind] = value;
+    }
+    else
+    {
+        Symbol_Entry *same_kind = NULL;
+        while (entry != NULL)
+        {
+            if (strcmp(entry->kind, value->kind) == 0)
+            {
+                ++index;
+                same_kind = entry;
+            }
+            
+            if (entry->next == NULL) break;
+            
+            entry = entry->next;
+        }
+        
+        value->index = index;
+        if (same_kind == NULL)
+        {
+            value->next = entry->next;
+            entry->next = value;
+        }
+        else
+        {
+            value->next = same_kind->next;
+            same_kind->next = value;
+        }
+    }
+}
+
+Symbol_Entry* get_variable_entry_from_subroutine(char *class_name, char *subroutine_name, char *variable_name)
+{
+    char key[BUFFER_SIZE];
+    sprintf(key, "%s_%s", class_name, subroutine_name);
+    if (symbol_table_subroutines.find(key) != symbol_table_subroutines.end())
+    {
+        for (auto& symbol : symbol_table_subroutines[key])
         {
             Symbol_Entry *entry = symbol.second;
             
@@ -721,7 +730,6 @@ void parse(Tokenizer *tokenizer, FILE *output_xml, FILE *output_vm)
     compile_class(tokenizer, output_xml, output_vm);
 }
 
-char *class_name;
 int class_var_dec_count;
 
 inline
@@ -822,7 +830,7 @@ void compile_class_var_dec(Tokenizer *tokenizer, FILE *output_xml, FILE *output_
             strcpy(name, token->value);
             fprintf(output_xml, "<identifier> %s </identifier>\n", name);
 
-            ++class_var_dec_count;
+            if (strcmp(kind, "this") == 0) ++class_var_dec_count;
             
             Symbol_Entry *entry = (Symbol_Entry *) malloc(sizeof(Symbol_Entry));
             entry->name = name;
@@ -844,7 +852,7 @@ void compile_class_var_dec(Tokenizer *tokenizer, FILE *output_xml, FILE *output_
         Token *eval_next_token = token->next;
         if (string_equals(eval_next_token->value, ",")) {
             token = next_token(tokenizer);
-            fprintf(output_xml, "<symbol> %s </symbol>", token->value);
+            fprintf(output_xml, "<symbol> %s </symbol>\n", token->value);
         } else {
             break;
         }
@@ -864,8 +872,6 @@ void compile_class_var_dec(Tokenizer *tokenizer, FILE *output_xml, FILE *output_
 }
 
 
-char *subroutine_name;
-char *function_or_method;
 
 inline
 void compile_subroutine(Tokenizer *tokenizer, FILE *output_xml, FILE *output_vm)
@@ -913,11 +919,11 @@ void compile_subroutine(Tokenizer *tokenizer, FILE *output_xml, FILE *output_vm)
         entry->kind = (char *) malloc(strlen("argument") + 1);
         strcpy(entry->kind, "argument");
         entry->next = NULL;
+
+        char *classname_subroutinename = (char *) malloc(strlen(subroutine_name) + strlen(class_name) + 1);
+        sprintf(classname_subroutinename, "%s_%s", class_name, subroutine_name);
         
-        char *subroutinename = (char *) malloc(strlen(subroutine_name) + 1);
-        strcpy(subroutinename, subroutine_name);
-        
-        if (generate_file == 0) add_value_symbol_table_subroutines(subroutinename, entry);
+        if (generate_file == 0) add_value_symbol_table_subroutines(classname_subroutinename, entry);
     }
     
     compile_parameter_list(tokenizer, output_xml, output_vm);
@@ -977,13 +983,14 @@ void compile_parameter_list(Tokenizer *tokenizer, FILE *output_xml, FILE *output
             entry->kind = (char *) malloc(strlen("argument") + 1);
             strcpy(entry->kind, "argument");
             entry->next = NULL;
+
+            char *classname_subroutinename = (char *) malloc(strlen(subroutine_name) + strlen(class_name) + 1);
+            sprintf(classname_subroutinename, "%s_%s", class_name, subroutine_name);
             
-            char *subroutinename = (char *) malloc(strlen(subroutine_name) + 1);
-            strcpy(subroutinename, subroutine_name);
-            
-            if (generate_file == 0) add_value_symbol_table_subroutines(subroutinename, entry);
+            if (generate_file == 0) add_value_symbol_table_subroutines(classname_subroutinename, entry);
         } else {
             fprintf(stderr, "Error(%lld): Specify name for parameter declaration\n", token->line_number);
+            free(type);
             return;
         }
         
@@ -1092,15 +1099,17 @@ int compile_var_dec(Tokenizer *tokenizer, FILE *output_xml, FILE *output_vm)
             entry->kind = (char *) malloc(strlen("local") + 1);
             strcpy(entry->kind, "local");
             entry->next = NULL;
+
             
-            char *subroutinename = (char *) malloc(strlen(subroutine_name) + 1);
-            strcpy(subroutinename, subroutine_name);
-            
-            if (generate_file == 0) add_value_symbol_table_subroutines(subroutinename, entry);
+            char *classname_subroutinename = (char *) malloc(strlen(subroutine_name) + strlen(class_name) + 1);
+            sprintf(classname_subroutinename, "%s_%s", class_name, subroutine_name);
+        
+            if (generate_file == 0) add_value_symbol_table_subroutines(classname_subroutinename, entry);
             
             ++var_count;
         } else {
             fprintf(stderr, "Error(%lld): Specify name for variable declaration\n", token->line_number);
+            free(variable_name);
             return 0;
         }
         
@@ -1203,7 +1212,7 @@ void compile_let(Tokenizer *tokenizer, FILE *output_xml, FILE *output_vm)
         
         fprintf(output_xml, "<symbol> %s </symbol>\n", token->value);
 
-        Symbol_Entry *entry = get_variable_entry_from_subroutine(subroutine_name, variable_name);
+        Symbol_Entry *entry = get_variable_entry_from_subroutine(class_name, subroutine_name, variable_name);
         if (entry == NULL)
         {
             entry = get_variable_entry_from_class(class_name, variable_name);
@@ -1240,7 +1249,7 @@ void compile_let(Tokenizer *tokenizer, FILE *output_xml, FILE *output_vm)
     }
     else
     {
-        Symbol_Entry *entry = get_variable_entry_from_subroutine(subroutine_name, variable_name);
+        Symbol_Entry *entry = get_variable_entry_from_subroutine(class_name, subroutine_name, variable_name);
         if (entry == NULL)
         {
             entry = get_variable_entry_from_class(class_name, variable_name);
@@ -1363,7 +1372,7 @@ void compile_term(Tokenizer *tokenizer, FILE *output_xml, FILE *output_vm)
             compile_expression(tokenizer, output_xml, output_vm);
 
             
-            Symbol_Entry *entry = get_variable_entry_from_subroutine(subroutine_name, array_variable_name);
+            Symbol_Entry *entry = get_variable_entry_from_subroutine(class_name, subroutine_name, array_variable_name);
             if (entry == NULL)
             {
                 entry = get_variable_entry_from_class(class_name, array_variable_name);
@@ -1398,7 +1407,7 @@ void compile_term(Tokenizer *tokenizer, FILE *output_xml, FILE *output_vm)
         else // Normal variable
         {
             char *variable_name = token->value;
-            Symbol_Entry *entry = get_variable_entry_from_subroutine(subroutine_name, variable_name);
+            Symbol_Entry *entry = get_variable_entry_from_subroutine(class_name, subroutine_name, variable_name);
             if (entry == NULL)
             {
                 entry = get_variable_entry_from_class(class_name, variable_name);
@@ -1448,7 +1457,7 @@ void compile_term(Tokenizer *tokenizer, FILE *output_xml, FILE *output_vm)
             if (generate_file == 1) fprintf(output_vm, "push constant 0\n");
             if (generate_file == 1) fprintf(output_vm, "not\n");
         }
-        else if (string_equals(token->value, "false"))
+        else if (string_equals(token->value, "false") || string_equals(token->value, "null"))
         {
             if (generate_file == 1) fprintf(output_vm, "push constant 0\n");
         }
@@ -1559,12 +1568,13 @@ void compile_subroutine_call(Tokenizer *tokenizer, FILE *output_xml, FILE *outpu
     if (string_equals(token->value, "(")) {
         fprintf(output_xml, "<symbol> %s </symbol>\n", token->value);
         
+        if (generate_file == 1) fprintf(output_vm, "push pointer 0\n");
+
         int expression_count = compile_expression_list(tokenizer, output_xml, output_vm);
 
-        Symbol_Entry *entry = get_variable_entry_from_subroutine(subroutine_call_name, "this");
+        Symbol_Entry *entry = get_variable_entry_from_subroutine(class_name, subroutine_call_name, "this");
         if (entry != NULL) ++expression_count;
 
-        if (generate_file == 1) fprintf(output_vm, "push pointer 0\n");
         if (generate_file == 1) fprintf(output_vm, "call %s.%s %d\n", class_name, subroutine_call_name, expression_count);
         
         
@@ -1596,16 +1606,21 @@ void compile_subroutine_call(Tokenizer *tokenizer, FILE *output_xml, FILE *outpu
         }
         
         
-        int expression_count = compile_expression_list(tokenizer, output_xml, output_vm);
-        Symbol_Entry *variable_entry = get_variable_entry_from_subroutine(subroutine_name, variable_caller);
-
-        if (variable_entry != NULL) ++expression_count;
-
+        Symbol_Entry *variable_entry = get_variable_entry_from_subroutine(class_name, subroutine_name, variable_caller);
         if (variable_entry == NULL)
         {
             variable_entry = get_variable_entry_from_class(class_name, variable_caller);
         }
+
+        if (variable_entry != NULL)
+        {
+            if (generate_file == 1) fprintf(output_vm, "push %s %d\n", variable_entry->kind, variable_entry->index);
+        }
         
+        int expression_count = compile_expression_list(tokenizer, output_xml, output_vm);
+        if (variable_entry != NULL) ++expression_count;
+
+
         bool is_os_method = os_method(variable_caller, subroutine_call_name, output_vm);
         if (!is_os_method)
         {
@@ -1618,7 +1633,6 @@ void compile_subroutine_call(Tokenizer *tokenizer, FILE *output_xml, FILE *outpu
             }
             else
             {
-                if (generate_file == 1) fprintf(output_vm, "push %s %d\n", variable_entry->kind, variable_entry->index);
                 if (generate_file == 1) fprintf(output_vm, "call %s.%s %d\n", variable_entry->type, subroutine_call_name, expression_count);
             }
         }
@@ -1666,12 +1680,13 @@ int compile_expression_list(Tokenizer *tokenizer, FILE *output_xml, FILE *output
         }
         
     }
-    
+
+#if 0
     if (strcmp(function_or_method, "method") == 0)
     {
         ++expression_count;
     }
-    
+#endif    
     fprintf(output_xml, "</expressionList>\n");
     
     return expression_count;
@@ -1898,7 +1913,12 @@ int main()
     
     int status_code = 0;
     
-    char *foldername = "Average";
+//    char *foldername = "Seven";
+//    char *foldername = "ConvertToBin";
+//    char *foldername = "Square";
+//    char *foldername = "Average";
+//    char *foldername = "Pong";
+    char *foldername = "ComplexArrays";
     
     add_symbol_table_os_subroutines();
 
@@ -1923,7 +1943,7 @@ int main()
             sprintf(filename_output, "%s/%s", foldername, folder_entry->d_name);
             sprintf(filename_output_xml, "%s/%s", foldername, folder_entry->d_name);
             
-            replace_str(filename_output, ".jack", ".vm2");
+            replace_str(filename_output, ".jack", ".vm");
             replace_str(filename_output_xml, ".jack", ".xml");
 
             FILE *output_xml = fopen(filename_output_xml, "w");

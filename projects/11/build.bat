@@ -1,3 +1,3 @@
 @echo off
 
-cl -FC -Zi compiler.cpp
+cl -FC -Zi -Od compiler.cpp
