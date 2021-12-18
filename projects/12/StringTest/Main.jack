@@ -10,16 +10,20 @@ class Main {
     function void main() {
         var String s;
         var String i;
+        var Array a;
+        
         
         let s = String.new(0); // a zero-capacity string should be supported
         do s.dispose();
-
+        
+        
         let s = String.new(6); // capacity 6, make sure that length 5 is displayed
         let s = s.appendChar(97);
         let s = s.appendChar(98);
         let s = s.appendChar(99);
         let s = s.appendChar(100);
         let s = s.appendChar(101);
+        
         do Output.printString("new,appendChar: ");
         do Output.printString(s);                // new, appendChar: abcde
         do Output.println();
@@ -40,6 +44,10 @@ class Main {
         do Output.println();
         
         do Output.printString("charAt[2]: ");
+        
+        let a = 8000;
+        let a[0] = 10;
+        let a[1] = s.charAt(2);
         do Output.printInt(s.charAt(2));         // charAt[2]: 99
         do Output.println();
         
