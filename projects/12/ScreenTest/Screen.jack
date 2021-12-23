@@ -1,0 +1,160 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/12/Screen.jack
+
+/**
+ * A library of functions for displaying graphics on the screen.
+ * The Hack physical screen consists of 256 rows (indexed 0..255, top to bottom)
+ * of 512 pixels each (indexed 0..511, left to right). The top left pixel on 
+ * the screen is indexed (0,0).
+ */
+class Screen {
+
+    static int SCREEN_ADDRESS;
+    static boolean color;
+    
+    /** Initializes the Screen. */
+    function void init() {
+        let SCREEN_ADDRESS = 16384;
+        let color = true;
+
+        return;
+    }
+
+    /** Erases the entire screen. */
+    function void clearScreen() {
+        var int memAddress;
+        var int i, j;
+        let i = 0;
+        while (i < 16) {
+            let j = 0;
+            while (j < 32) {
+                let memAddress = SCREEN_ADDRESS + (i * 512) + j;
+                do Memory.poke(memAddress + 0,   0);
+                do Memory.poke(memAddress + 32,  0);
+                do Memory.poke(memAddress + 64,  0);
+                do Memory.poke(memAddress + 96,  0);
+                do Memory.poke(memAddress + 128, 0);
+                do Memory.poke(memAddress + 160, 0);
+                do Memory.poke(memAddress + 192, 0);
+                do Memory.poke(memAddress + 224, 0);
+                do Memory.poke(memAddress + 256, 0);
+                do Memory.poke(memAddress + 288, 0);
+                do Memory.poke(memAddress + 320, 0);
+                do Memory.poke(memAddress + 352, 0);
+                do Memory.poke(memAddress + 384, 0);
+                do Memory.poke(memAddress + 416, 0);
+                do Memory.poke(memAddress + 448, 0);
+                do Memory.poke(memAddress + 480, 0);
+
+                let j = j + 1;
+            }
+
+            let i = i + 1;
+        }
+        
+        return;
+    }
+
+    /** Sets the current color, to be used for all subsequent drawXXX commands.
+     *  Black is represented by true, white by false. */
+    function void setColor(boolean b) {
+        let color = b;
+        return;
+    }
+
+    /** Draws the (x,y) pixel, using the current color. */
+    function void drawPixel(int x, int y) {
+        var int location, oldValue, num;
+        let location = SCREEN_ADDRESS + (y * 32) + (x / 16);
+        let num = Math.twoRaisedTo(Math.mod(x, 16));
+        let oldValue = Memory.peek(location);
+
+        if (color) {
+            do Memory.poke(location, (oldValue | num));
+        } else {
+            do Memory.poke(location, (oldValue & ~(num)));
+        }
+        
+        return;
+    }
+
+    /** Draws a line from pixel (x1,y1) to pixel (x2,y2), using the current color. */
+    function void drawLine(int x1, int y1, int x2, int y2) {
+        var int dx, dy;
+        var int adyMinusbdx;
+        var int a, b;
+        var int currentX, currentY;
+
+        let dx = Math.abs(x2 - x1);
+        let dy = Math.abs(y2 - y1);
+       
+        let adyMinusbdx = 0;
+        
+        let a = 0;
+        let b = 0;
+        
+        while ((~(a > dx)) & (~(b > dy))) {
+            if (x1 < x2) {
+                let currentX = x1 + a;
+            } else {
+                let currentX = x1 - a;
+            }
+
+            if (y1 < y2) {
+                let currentY = y1 + b;
+            } else {
+                let currentY = y1 - b;
+            }
+            
+            do Screen.drawPixel(currentX, currentY);
+
+            // The overall algorithm works except for horizontal lines; dy = 0 fix this issue.
+            if ((adyMinusbdx < 0) | (dy = 0)) {
+                let a = a + 1;
+                let adyMinusbdx = adyMinusbdx + dy;
+            } else {
+                let b = b + 1;
+                let adyMinusbdx = adyMinusbdx - dx;
+            }
+        }
+        
+        return;
+    }
+
+    /** Draws a filled rectangle whose top left corner is (x1, y1)
+     * and bottom right corner is (x2,y2), using the current color. */
+    function void drawRectangle(int x1, int y1, int x2, int y2) {
+        var int b;
+        let b = 0;
+        while (~((y1 + b) > y2)) {
+            do Screen.drawLine(x1, y1 + b, x2, y1 + b);
+            let b = b + 1;
+        }
+        
+        return;
+    }
+
+    /** Draws a filled circle of radius r<=181 around (x,y), using the current color. */
+    function void drawCircle(int x, int y, int r) {
+        var int dy;
+        var int x1, y1, x2, y2;
+        var int sqrt;
+        let dy = -r;
+
+        while (~(dy > r)) {
+            let sqrt = Math.sqrt(((r*r) - (dy*dy)));
+            let x1 = (x - sqrt);
+            let y1 = (y + dy);
+            let x2 = (x + sqrt);
+            let y2 = y1;
+
+            do Screen.drawLine(x1, y1, x2, y2);
+            
+            let dy = dy + 1;
+        }
+        
+        return;
+    }
+}
