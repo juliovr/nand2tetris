@@ -10,40 +10,79 @@
  */ 
 class Memory {
 
-    static Array MEMORY;
-    static int HEAP_BASE_ADDRESS;
+    static Array memory;
+    static int HEAP;
     static int HEAP_LIMIT_ADDRESS;
-    static Array FREE_LIST;
+    static Array freeList;
     
     /** Initializes the class. */
     function void init() {
-        let MEMORY = 0;
-        let HEAP_BASE_ADDRESS = 2048;
+        let memory = 0;
+        let HEAP = 2048;
         let HEAP_LIMIT_ADDRESS = 16383;
-        let FREE_LIST = HEAP_BASE_ADDRESS; // set base address for free_list to heap
-        let FREE_LIST[0] = HEAP_LIMIT_ADDRESS - HEAP_BASE_ADDRESS;
+        let freeList = HEAP; // set base address for freeList to heap
+        let freeList[0] = HEAP_LIMIT_ADDRESS - HEAP - 2; // 2 for hold the freeList length and next segment pointer
+        let freeList[1] = HEAP + 2;
         return;
     }
 
     /** Returns the RAM value at the given address. */
     function int peek(int address) {
-        return MEMORY[address];
+        return memory[address];
     }
 
     /** Sets the RAM value at the given address to the given value. */
     function void poke(int address, int value) {
-        let MEMORY[address] = value;
+        let memory[address] = value;
         return;
     }
 
     /** Finds an available RAM block of the given size and returns
      *  a reference to its base address. */
     function int alloc(int size) {
-        var int block;
-        
-        if (FREE_LIST[0] > size) {
-            FREE_LIST = FREE_LIST + size + 1;
+        var Array freeBlock;
+        var int blockSize;
+        var int newBlock;
+        var int nextBlock;
+        var int i;
+
+        let freeBlock = freeList;
+        let blockSize = size + 1;
+
+
+        if (~(freeList[0] < blockSize)) {
+            let freeBlock = freeList;
+
+            // Update freeList
+            let freeList = freeList + blockSize;
+            let freeList[0] = freeBlock[0] - blockSize; // Previous freeList size
+            let freeList[1] = freeBlock[1];             // Previous freeList next-block pointer
+
+            let freeBlock[0] = blockSize;
+
+            // Clear memory values
+            let i = 1;
+            while (i < blockSize) {
+                let freeBlock[i] = 0;
+                let i = i + 1;
+            }
+
+            return freeBlock;
         }
+
+/*
+        // When there is no more space in freelist and need to look-up from recycle blocks
+
+        // Looking up for an available block
+        while ((freeBlock[0] < blockSize) | (~(freeBlock[1] = null))) {
+            let freeBlock = freeBlock[1];
+        }
+
+        // Not enough space to allocate
+        if (freeBlock[0] < blockSize) {
+            return -1;
+        }
+*/
         
         return 0;
     }
