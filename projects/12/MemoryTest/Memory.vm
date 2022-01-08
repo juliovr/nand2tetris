@@ -22,9 +22,7 @@ pop that 0
 push constant 1
 push static 3
 add
-push static 1
-push constant 2
-add
+push constant 0
 pop temp 0
 pop pointer 1
 push temp 0
@@ -50,18 +48,20 @@ pop that 0
 push constant 0
 return
 function Memory.alloc 5
+push constant 0
+pop local 1
 push static 3
 pop local 0
 push argument 0
 push constant 1
 add
-pop local 1
+pop local 2
 push constant 0
 push static 3
 add
 pop pointer 1
 push that 0
-push local 1
+push local 2
 lt
 not
 if-goto IF_TRUE0
@@ -70,7 +70,7 @@ label IF_TRUE0
 push static 3
 pop local 0
 push static 3
-push local 1
+push local 2
 add
 pop static 3
 push constant 0
@@ -81,7 +81,7 @@ push local 0
 add
 pop pointer 1
 push that 0
-push local 1
+push local 2
 sub
 pop temp 0
 pop pointer 1
@@ -102,20 +102,56 @@ pop that 0
 push constant 0
 push local 0
 add
-push local 1
+push local 2
 pop temp 0
 pop pointer 1
 push temp 0
 pop that 0
+goto IF_END0
+label IF_FALSE0
 push constant 1
-pop local 4
+push static 3
+add
+pop pointer 1
+push that 0
+pop local 0
 label WHILE_EXP0
-push local 4
-push local 1
+push constant 0
+push local 0
+add
+pop pointer 1
+push that 0
+push local 2
 lt
+push constant 1
+push local 0
+add
+pop pointer 1
+push that 0
+push constant 0
+eq
+not
+and
 not
 if-goto WHILE_END0
-push local 4
+push constant 1
+push local 0
+add
+pop pointer 1
+push that 0
+pop local 0
+goto WHILE_EXP0
+label WHILE_END0
+label IF_END0
+push constant 1
+pop local 3
+label WHILE_EXP1
+push local 3
+push local 2
+lt
+not
+if-goto WHILE_END1
+push local 3
 push local 0
 add
 push constant 0
@@ -123,17 +159,53 @@ pop temp 0
 pop pointer 1
 push temp 0
 pop that 0
-push local 4
+push local 3
 push constant 1
 add
-pop local 4
+pop local 3
+goto WHILE_EXP1
+label WHILE_END1
+push local 0
+push constant 1
+add
+return
+function Memory.deAlloc 1
+push static 3
+pop local 0
+label WHILE_EXP0
+push constant 1
+push local 0
+add
+pop pointer 1
+push that 0
+push constant 0
+eq
+not
+not
+if-goto WHILE_END0
+push constant 1
+push local 0
+add
+pop pointer 1
+push that 0
+pop local 0
 goto WHILE_EXP0
 label WHILE_END0
-push local 0
-return
-label IF_FALSE0
+push constant 1
+push argument 0
+add
 push constant 0
-return
-function Memory.deAlloc 0
+pop temp 0
+pop pointer 1
+push temp 0
+pop that 0
+push constant 1
+push local 0
+add
+push argument 0
+pop temp 0
+pop pointer 1
+push temp 0
+pop that 0
 push constant 0
 return

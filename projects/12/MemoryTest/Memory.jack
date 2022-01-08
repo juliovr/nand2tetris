@@ -40,7 +40,7 @@ class Memory {
     /** Finds an available RAM block of the given size and returns
      *  a reference to its base address. */
     function int alloc(int size) {
-        var Array freeBlock;
+        var Array freeBlock, previousBlock;
         var int blockSize;
         var int newBlock;
         var int nextBlock;
@@ -49,6 +49,61 @@ class Memory {
         let freeBlock = freeList;
         let blockSize = size + 1;
 
+        /*
+        while (~(freeBlock[1] = null)) {
+            let previousBlock = freeBlock;
+
+            if (~(freeBlock[0] < blockSize)) {
+                let previousBlock[1] = freeBlock[1]; // Point to the next element
+
+
+                // Update freeBlock
+                let freeBlock = freeBlock + blockSize;
+                let freeBlock[0] = freeBlock[0] - blockSize; // Previous freeBlock size
+                let freeBlock[1] = freeBlock[1];             // Previous freeBlock next-block pointer
+
+                let freeBlock[0] = blockSize;
+
+
+
+                // Clear memory values
+                let i = 1;
+                while (i < blockSize) {
+                    let freeBlock[i] = 0;
+                    let i = i + 1;
+                }
+
+                return freeBlock;
+            }
+
+            let freeBlock = freeBlock[1];
+
+
+
+            
+            if (freeBlock[0] > blockSize) {
+                // if there is not at least 2 elements free, it can't be possible to store the size and next pointer en the remaining memory block.
+                // TODO: check how to do this    
+                previousSize = freeBlock[0];
+                freeBlock[0] = blockSize;
+                freeBlock
+                
+            } else {
+                if (freeBlock[0] = blockSize) {
+                    let previousBlock[1] = freeBlock[1]; // Point to the next element
+
+                    // Clear memory values
+                    let i = 1;
+                    while (i < blockSize) {
+                        let freeBlock[i] = 0;
+                        let i = i + 1;
+                    }
+
+                    return freeBlock;
+                }
+            }
+        }
+        */
 
         if (~(freeList[0] < blockSize)) {
             let freeBlock = freeList;
@@ -90,6 +145,9 @@ class Memory {
     /** De-allocates the given object (cast as an array) by making
      *  it available for future allocations. */
     function void deAlloc(Array o) {
+        let o[1] = freeList[1];
+        let freeList[1] = o;
+
         return;
     }
 }
